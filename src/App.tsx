@@ -22,7 +22,7 @@ const DEFECT_TYPES = [
   "Burn Mark (รอยไหม้)", "Warpage (บิดงอ)", "Color Difference (สีเพี้ยน)", "Scratch (รอยขีดข่วน)", "Other (อื่นๆ)"
 ];
 
-const checkNg = (act, std, tol) => {
+const checkNg = (act: any, std: any, tol: any) => {
   if (!act || !std) return false;
   const a = parseFloat(act);
   const s = parseFloat(std);
@@ -31,45 +31,44 @@ const checkNg = (act, std, tol) => {
 };
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('projects'); // 'projects' or 'calendar'
-  const [view, setView] = useState('clients'); 
-  const [path, setPath] = useState({ client: null, model: null, part: null });
+  const [activeTab, setActiveTab] = useState<string>('projects'); // 'projects' or 'calendar'
+  const [view, setView] = useState<string>('clients'); 
+  const [path, setPath] = useState<any>({ client: null, model: null, part: null });
 
-  const [clients, setClients] = useState([
+  const [clients, setClients] = useState<any[]>([
     { id: 1, name: 'TS TECH (THAILAND) CO., LTD.' }
   ]);
-  const [models, setModels] = useState([
+  const [models, setModels] = useState<any[]>([
     { id: 1, clientId: 1, name: '3DAA' },
     { id: 2, clientId: 1, name: '34AA' },
     { id: 3, clientId: 1, name: 'P700' },
   ]);
   
-  const [parts, setParts] = useState([
+  const [parts, setParts] = useState<any[]>([
     { id: 1, modelId: 1, code: '81248-3DA7-H610-M1-0000', name: 'COVER R RECLINING INN', material: 'PP CP-WPIN (NH900L)', stdWeight: '62', stdWeightTol: '2', stdCycleTime: '75', stdCycleTimeTol: '5', cavity: '1+1', components: 'CSK JOB.701', img: '' },
     { id: 2, modelId: 1, code: '81514-3DA7-T510-M1-0001', name: 'INN COVER L BACK SW', material: 'PP CP-WPIN (NATURAL)', stdWeight: '75', stdWeightTol: '2', stdCycleTime: '60', stdCycleTimeTol: '5', cavity: '1', components: 'KRK', img: '' },
     { id: 3, modelId: 2, code: '82221-34A7-A010-M1-0000', name: 'LOCK COVER R LWR,RR BACK', material: 'PP CP-WPIN (NH900L)', stdWeight: '99', stdWeightTol: '3', stdCycleTime: '65', stdCycleTimeTol: '5', cavity: '1+1', components: 'WDA (JMG)', img: '' },
     { id: 4, modelId: 3, code: '83500-P707-1000-21-0000', name: 'POCKET DOOR PAD RH', material: 'SUD0301 (N343)', stdWeight: '289', stdWeightTol: '5', stdCycleTime: '60', stdCycleTimeTol: '5', cavity: '1+1', components: 'CSK JOB.746', img: '' },
   ]);
   
-  const [trials, setTrials] = useState([]);
+  const [trials, setTrials] = useState<any[]>([]);
   
-  // State สำหรับปฏิทินนัดหมาย (Appointments) - แก้ไข Bug ให้ลบทีละรายการด้วย unique ID
-  const [appointments, setAppointments] = useState([
+  const [appointments, setAppointments] = useState<any[]>([
     { id: 101, date: '2026-08-12', time: '13:00', type: 'Trial / งานนัด', title: 'Try 34AA ORN GARN R/L,RR DOOR', note: 'ลูกค้าแก้ไขปัญหาชิ้นงานเสียรูป (งานหุบ แนวยาว)' },
     { id: 102, date: '2026-08-12', time: '13:00', type: 'Support / Jig', title: 'Modify 3DAA BASE R/L,FR ARMREST', note: 'ลูกค้าต้องเจีย mold' },
     { id: 103, date: '2026-08-12', time: '13:00', type: 'Support / Jig', title: 'Modify 3DAA BASE R/L,FR ARMREST', note: 'ลูกค้าต้องเจีย mold รบกวนเปิด mold ด้วย' }
   ]);
-  const [appointmentModal, setAppointmentModal] = useState(false);
-  const [appointmentInput, setAppointmentInput] = useState({ date: '2026-08-12', time: '13:00', type: 'Trial / งานนัด', title: '', note: '' });
-  const [deleteApptConfirmId, setDeleteApptConfirmId] = useState(null);
+  const [appointmentModal, setAppointmentModal] = useState<boolean>(false);
+  const [appointmentInput, setAppointmentInput] = useState<any>({ date: '2026-08-12', time: '13:00', type: 'Trial / งานนัด', title: '', note: '' });
+  const [deleteApptConfirmId, setDeleteApptConfirmId] = useState<any>(null);
 
-  const [addingId, setAddingId] = useState(null);
-  const [editingId, setEditingId] = useState(null);
-  const [editingTrialId, setEditingTrialId] = useState(null);
-  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
-  const [inputValue, setInputValue] = useState('');
-  const [partInput, setPartInput] = useState({});
-  const [zoomedImg, setZoomedImg] = useState(null);
+  const [addingId, setAddingId] = useState<any>(null);
+  const [editingId, setEditingId] = useState<any>(null);
+  const [editingTrialId, setEditingTrialId] = useState<any>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<any>(null);
+  const [inputValue, setInputValue] = useState<string>('');
+  const [partInput, setPartInput] = useState<any>({});
+  const [zoomedImg, setZoomedImg] = useState<any>(null);
 
   const resetForms = () => { setAddingId(null); setEditingId(null); setConfirmDeleteId(null); setInputValue(''); setPartInput({}); setEditingTrialId(null); };
   
@@ -81,7 +80,7 @@ export default function App() {
     if (view === 'report' || view === 'trial_form') setView('trials');
   };
 
-  const ActionButtons = ({ id, onEdit, onDelete, isEditing, onSave, onCancel }) => {
+  const ActionButtons = ({ id, onEdit, onDelete, isEditing, onSave, onCancel }: any) => {
     if (isEditing) {
       return (
         <div className="flex gap-2">
@@ -107,8 +106,8 @@ export default function App() {
     );
   };
 
-  const ImageUpload = ({ label, onChange, value, height = "h-24" }) => {
-    const handleFile = (e) => {
+  const ImageUpload = ({ label, onChange, value, height = "h-24" }: any) => {
+    const handleFile = (e: any) => {
       if (e.target.files && e.target.files[0]) {
         const url = URL.createObjectURL(e.target.files[0]);
         onChange(url);
@@ -362,7 +361,7 @@ export default function App() {
               </thead>
               <tbody>
                 {appointments.length === 0 ? (
-                  <tr><td colSpan="6" className="text-center py-8 text-gray-400">ไม่มีข้อมูลนัดหมายในเดือนนี้</td></tr>
+                  <tr><td colSpan={6} className="text-center py-8 text-gray-400">ไม่มีข้อมูลนัดหมายในเดือนนี้</td></tr>
                 ) : (
                   appointments.map(appt => (
                     <tr key={appt.id} className="border-b hover:bg-gray-50 transition-colors">
@@ -423,7 +422,7 @@ export default function App() {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 mb-1">รายละเอียด / หมายเหตุ</label>
-                  <textarea rows="3" placeholder="ระบุรายละเอียดเพิ่มเติม..." className="w-full border p-2 rounded text-sm outline-none focus:ring-2 focus:ring-blue-400" value={appointmentInput.note} onChange={e => setAppointmentInput({...appointmentInput, note: e.target.value})}></textarea>
+                  <textarea rows={3} placeholder="ระบุรายละเอียดเพิ่มเติม..." className="w-full border p-2 rounded text-sm outline-none focus:ring-2 focus:ring-blue-400" value={appointmentInput.note} onChange={e => setAppointmentInput({...appointmentInput, note: e.target.value})}></textarea>
                 </div>
               </div>
               <div className="flex justify-end gap-2 pt-3 border-t">
@@ -470,14 +469,14 @@ export default function App() {
                     <div className={checkNg(t.actWeight, path.part.stdWeight, path.part.stdWeightTol) ? "text-red-600" : "text-green-600"}><strong>Weight ACT:</strong> {t.actWeight || '-'} g</div>
                     <div className={checkNg(t.actCycleTime, path.part.stdCycleTime, path.part.stdCycleTimeTol) ? "text-red-600" : "text-green-600"}><strong>C/T ACT:</strong> {t.actCycleTime || '-'} sec</div>
                   </div>
-                  <p className="text-sm truncate"><strong className="text-red-600">ชิ้นงาน NG ({t.partProblems.length}):</strong> {t.partProblems.map(p => p.defect).join(', ') || '-'}</p>
+                  <p className="text-sm truncate"><strong className="text-red-600">ชิ้นงาน NG ({t.partProblems.length}):</strong> {t.partProblems.map((p: any) => p.defect).join(', ') || '-'}</p>
                 </div>
                 <div className="absolute top-4 right-4">
                    <ActionButtons 
                      id={t.id} 
                      isEditing={false} 
                      onEdit={() => { setEditingTrialId(t.id); setView('trial_form'); }} 
-                     onDelete={() => { setTrials(trials.filter(item => item.id !== t.id)); setConfirmDeleteId(null); }} 
+                     onDelete={() => { setTrials(trials.filter((item: any) => item.id !== t.id)); setConfirmDeleteId(null); }} 
                    />
                 </div>
               </div>
@@ -497,7 +496,7 @@ export default function App() {
     const existingTrial = isEditing ? trials.find(t => t.id === editingTrialId) : null;
     const currentTrialNo = isEditing ? existingTrial.trialNo : partTrials.length + 1;
 
-    const [formData, setFormData] = useState(existingTrial || {
+    const [formData, setFormData] = useState<any>(existingTrial || {
       date: new Date().toISOString().split('T')[0],
       images: { setupClose: null, setupOpen: null, cav: null, core: null, coreEjector: null, resin: null, machine: null },
       equipmentImages: [],
@@ -514,7 +513,7 @@ export default function App() {
 
     const handleSave = () => {
       if (isEditing) {
-        setTrials(trials.map(t => t.id === editingTrialId ? { ...t, ...formData } : t));
+        setTrials(trials.map((t: any) => t.id === editingTrialId ? { ...t, ...formData } : t));
       } else {
         setTrials([...trials, { id: Date.now(), partId: path.part.id, trialNo: currentTrialNo, ...formData }]);
       }
@@ -522,15 +521,15 @@ export default function App() {
       setEditingTrialId(null);
     };
 
-    const addProblem = (type) => {
+    const addProblem = (type: string) => {
       const newProblem = { id: Date.now(), img: null, note: '', defect: 'Flash (รอยครีบ)' };
       if (type === 'part') setFormData({...formData, partProblems: [...formData.partProblems, newProblem]});
       if (type === 'mold') setFormData({...formData, moldProblems: [...formData.moldProblems, newProblem]});
     };
     
-    const updateProblem = (type, id, field, value) => {
-      if (type === 'part') setFormData({...formData, partProblems: formData.partProblems.map(p => p.id === id ? {...p, [field]: value} : p)});
-      if (type === 'mold') setFormData({...formData, moldProblems: formData.moldProblems.map(p => p.id === id ? {...p, [field]: value} : p)});
+    const updateProblem = (type: string, id: any, field: string, value: any) => {
+      if (type === 'part') setFormData({...formData, partProblems: formData.partProblems.map((p: any) => p.id === id ? {...p, [field]: value} : p)});
+      if (type === 'mold') setFormData({...formData, moldProblems: formData.moldProblems.map((p: any) => p.id === id ? {...p, [field]: value} : p)});
     };
 
     return (
@@ -549,17 +548,17 @@ export default function App() {
           <div className="space-y-3">
              <p className="font-semibold text-blue-800 text-sm border-b pb-1">1.1 สภาพแม่พิมพ์ (Mold Setup)</p>
              <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-               <ImageUpload label="แม่พิมพ์ปิด" value={formData.images.setupClose} onChange={(url) => setFormData({...formData, images: {...formData.images, setupClose: url}})} />
-               <ImageUpload label="แม่พิมพ์เปิด" value={formData.images.setupOpen} onChange={(url) => setFormData({...formData, images: {...formData.images, setupOpen: url}})} />
-               <ImageUpload label="ฝั่ง Cavity" value={formData.images.cav} onChange={(url) => setFormData({...formData, images: {...formData.images, cav: url}})} />
-               <ImageUpload label="ฝั่ง Core" value={formData.images.core} onChange={(url) => setFormData({...formData, images: {...formData.images, core: url}})} />
-               <ImageUpload label="ฝั่ง Core (เช็คปลดงาน)" value={formData.images.coreEjector} onChange={(url) => setFormData({...formData, images: {...formData.images, coreEjector: url}})} />
+               <ImageUpload label="แม่พิมพ์ปิด" value={formData.images.setupClose} onChange={(url: any) => setFormData({...formData, images: {...formData.images, setupClose: url}})} />
+               <ImageUpload label="แม่พิมพ์เปิด" value={formData.images.setupOpen} onChange={(url: any) => setFormData({...formData, images: {...formData.images, setupOpen: url}})} />
+               <ImageUpload label="ฝั่ง Cavity" value={formData.images.cav} onChange={(url: any) => setFormData({...formData, images: {...formData.images, cav: url}})} />
+               <ImageUpload label="ฝั่ง Core" value={formData.images.core} onChange={(url: any) => setFormData({...formData, images: {...formData.images, core: url}})} />
+               <ImageUpload label="ฝั่ง Core (เช็คปลดงาน)" value={formData.images.coreEjector} onChange={(url: any) => setFormData({...formData, images: {...formData.images, coreEjector: url}})} />
              </div>
              
              <p className="font-semibold text-blue-800 text-sm border-b pb-1 mt-4">1.2 Material & Machine</p>
              <div className="grid grid-cols-2 gap-2">
-               <ImageUpload label="กระสอบเม็ดพลาสติก" value={formData.images.resin} onChange={(url) => setFormData({...formData, images: {...formData.images, resin: url}})} />
-               <ImageUpload label="เครื่องจักร & ป้าย" value={formData.images.machine} onChange={(url) => setFormData({...formData, images: {...formData.images, machine: url}})} />
+               <ImageUpload label="กระสอบเม็ดพลาสติก" value={formData.images.resin} onChange={(url: any) => setFormData({...formData, images: {...formData.images, resin: url}})} />
+               <ImageUpload label="เครื่องจักร & ป้าย" value={formData.images.machine} onChange={(url: any) => setFormData({...formData, images: {...formData.images, machine: url}})} />
              </div>
 
              <div className="flex justify-between items-center mt-4 border-b pb-1">
@@ -567,11 +566,11 @@ export default function App() {
                 <button onClick={() => setFormData({...formData, equipmentImages: [...formData.equipmentImages, { id: Date.now(), img: null, note: '' }]})} className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">+ เพิ่มรูปอุปกรณ์</button>
              </div>
              <div className="grid grid-cols-2 gap-2">
-                {formData.equipmentImages.map(eq => (
+                {formData.equipmentImages.map((eq: any) => (
                   <div key={eq.id} className="border p-2 rounded bg-gray-50 flex flex-col relative group">
-                     <button onClick={() => setFormData({...formData, equipmentImages: formData.equipmentImages.filter(i => i.id !== eq.id)})} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 z-10 hidden group-hover:block"><X size={12}/></button>
-                     <ImageUpload label="รูปอุปกรณ์" height="h-20" value={eq.img} onChange={(url) => setFormData({...formData, equipmentImages: formData.equipmentImages.map(i => i.id === eq.id ? {...i, img: url} : i)})} />
-                     <input type="text" className="w-full text-xs p-1 border rounded mt-1" placeholder="ระบุชื่ออุปกรณ์..." value={eq.note} onChange={(e) => setFormData({...formData, equipmentImages: formData.equipmentImages.map(i => i.id === eq.id ? {...i, note: e.target.value} : i)})} />
+                     <button onClick={() => setFormData({...formData, equipmentImages: formData.equipmentImages.filter((i: any) => i.id !== eq.id)})} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 z-10 hidden group-hover:block"><X size={12}/></button>
+                     <ImageUpload label="รูปอุปกรณ์" height="h-20" value={eq.img} onChange={(url: any) => setFormData({...formData, equipmentImages: formData.equipmentImages.map((i: any) => i.id === eq.id ? {...i, img: url} : i)})} />
+                     <input type="text" className="w-full text-xs p-1 border rounded mt-1" placeholder="ระบุชื่ออุปกรณ์..." value={eq.note} onChange={(e) => setFormData({...formData, equipmentImages: formData.equipmentImages.map((i: any) => i.id === eq.id ? {...i, note: e.target.value} : i)})} />
                   </div>
                 ))}
              </div>
@@ -581,10 +580,10 @@ export default function App() {
                 <button onClick={() => setFormData({...formData, atmosphereImages: [...formData.atmosphereImages, { id: Date.now(), img: null }]})} className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">+ เพิ่มรูป</button>
              </div>
              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-               {formData.atmosphereImages.map(imgObj => (
+               {formData.atmosphereImages.map((imgObj: any) => (
                   <div key={imgObj.id} className="relative group">
-                    <button onClick={() => setFormData({...formData, atmosphereImages: formData.atmosphereImages.filter(i => i.id !== imgObj.id)})} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 z-10 hidden group-hover:block"><X size={12}/></button>
-                    <ImageUpload label="บรรยากาศ" value={imgObj.img} onChange={(url) => setFormData({...formData, atmosphereImages: formData.atmosphereImages.map(i => i.id === imgObj.id ? {...i, img: url} : i)})} />
+                    <button onClick={() => setFormData({...formData, atmosphereImages: formData.atmosphereImages.filter((i: any) => i.id !== imgObj.id)})} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 z-10 hidden group-hover:block"><X size={12}/></button>
+                    <ImageUpload label="บรรยากาศ" value={imgObj.img} onChange={(url: any) => setFormData({...formData, atmosphereImages: formData.atmosphereImages.map((i: any) => i.id === imgObj.id ? {...i, img: url} : i)})} />
                   </div>
                ))}
              </div>
@@ -594,11 +593,11 @@ export default function App() {
                 <button onClick={() => setFormData({...formData, monitorImages: [...formData.monitorImages, { id: Date.now(), img: null, note: '' }]})} className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">+ เพิ่มจอ Monitor</button>
              </div>
              <div className="grid grid-cols-2 gap-2">
-                {formData.monitorImages.map(m => (
+                {formData.monitorImages.map((m: any) => (
                   <div key={m.id} className="border p-2 rounded bg-gray-50 flex gap-2 relative group">
-                     <button onClick={() => setFormData({...formData, monitorImages: formData.monitorImages.filter(i => i.id !== m.id)})} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 z-10 hidden group-hover:block"><X size={12}/></button>
-                     <div className="w-1/2"><ImageUpload label="หน้าจอ" height="h-24" value={m.img} onChange={(url) => setFormData({...formData, monitorImages: formData.monitorImages.map(i => i.id === m.id ? {...i, img: url} : i)})} /></div>
-                     <div className="w-1/2"><textarea className="w-full h-full text-xs p-1 border rounded" placeholder="ระบุหน้าจอ..." value={m.note} onChange={(e) => setFormData({...formData, monitorImages: formData.monitorImages.map(i => i.id === m.id ? {...i, note: e.target.value} : i)})} /></div>
+                     <button onClick={() => setFormData({...formData, monitorImages: formData.monitorImages.filter((i: any) => i.id !== m.id)})} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 z-10 hidden group-hover:block"><X size={12}/></button>
+                     <div className="w-1/2"><ImageUpload label="หน้าจอ" height="h-24" value={m.img} onChange={(url: any) => setFormData({...formData, monitorImages: formData.monitorImages.map((i: any) => i.id === m.id ? {...i, img: url} : i)})} /></div>
+                     <div className="w-1/2"><textarea className="w-full h-full text-xs p-1 border rounded" placeholder="ระบุหน้าจอ..." value={m.note} onChange={(e) => setFormData({...formData, monitorImages: formData.monitorImages.map((i: any) => i.id === m.id ? {...i, note: e.target.value} : i)})} /></div>
                   </div>
                 ))}
              </div>
@@ -616,15 +615,15 @@ export default function App() {
              </div>
              <div className="space-y-3">
                {formData.partProblems.length === 0 && <p className="text-xs text-gray-400 text-center">ไม่มีปัญหา</p>}
-               {formData.partProblems.map((p, idx) => (
+               {formData.partProblems.map((p: any) => (
                  <div key={p.id} className="flex flex-col md:flex-row gap-3 bg-red-50 p-2 rounded border border-red-100 relative">
-                   <button onClick={() => setFormData({...formData, partProblems: formData.partProblems.filter(item => item.id !== p.id)})} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"><X size={12}/></button>
-                   <div className="md:w-1/3"><ImageUpload label="รูป NG" height="h-24" value={p.img} onChange={(url) => updateProblem('part', p.id, 'img', url)} /></div>
+                   <button onClick={() => setFormData({...formData, partProblems: formData.partProblems.filter((item: any) => item.id !== p.id)})} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"><X size={12}/></button>
+                   <div className="md:w-1/3"><ImageUpload label="รูป NG" height="h-24" value={p.img} onChange={(url: any) => updateProblem('part', p.id, 'img', url)} /></div>
                    <div className="md:w-2/3 space-y-2">
                      <select className="w-full border p-1 text-sm rounded bg-white text-red-700 font-semibold" value={p.defect} onChange={(e) => updateProblem('part', p.id, 'defect', e.target.value)}>
                        {DEFECT_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
                      </select>
-                     <textarea className="w-full text-sm p-2 border rounded focus:ring-1" rows="2" placeholder="รายละเอียด/ตำแหน่ง..." value={p.note} onChange={(e) => updateProblem('part', p.id, 'note', e.target.value)}></textarea>
+                     <textarea className="w-full text-sm p-2 border rounded focus:ring-1" rows={2} placeholder="รายละเอียด/ตำแหน่ง..." value={p.note} onChange={(e) => updateProblem('part', p.id, 'note', e.target.value)}></textarea>
                    </div>
                  </div>
                ))}
@@ -638,10 +637,10 @@ export default function App() {
              </div>
              <div className="space-y-3">
                {formData.moldProblems.length === 0 && <p className="text-xs text-gray-400 text-center">ไม่มีปัญหา</p>}
-               {formData.moldProblems.map(p => (
+               {formData.moldProblems.map((p: any) => (
                  <div key={p.id} className="flex flex-col md:flex-row gap-3 bg-orange-50 p-2 rounded border border-orange-100 relative">
-                   <button onClick={() => setFormData({...formData, moldProblems: formData.moldProblems.filter(item => item.id !== p.id)})} className="absolute -top-2 -right-2 bg-orange-500 text-white rounded-full p-1"><X size={12}/></button>
-                   <div className="md:w-1/3"><ImageUpload label="รูป Mold NG" height="h-24" value={p.img} onChange={(url) => updateProblem('mold', p.id, 'img', url)} /></div>
+                   <button onClick={() => setFormData({...formData, moldProblems: formData.moldProblems.filter((item: any) => item.id !== p.id)})} className="absolute -top-2 -right-2 bg-orange-500 text-white rounded-full p-1"><X size={12}/></button>
+                   <div className="md:w-1/3"><ImageUpload label="รูป Mold NG" height="h-24" value={p.img} onChange={(url: any) => updateProblem('mold', p.id, 'img', url)} /></div>
                    <div className="md:w-2/3"><textarea className="w-full h-full text-sm p-2 border rounded focus:ring-1" placeholder="เช่น สลักค้าง, น้ำรั่ว, ปลดไม่ออก..." value={p.note} onChange={(e) => updateProblem('mold', p.id, 'note', e.target.value)}></textarea></div>
                  </div>
                ))}
@@ -671,7 +670,7 @@ export default function App() {
 
           <div className="space-y-2 border-t pt-3 mt-3">
              <label className="block text-sm font-semibold text-gray-700">Action สำหรับแม่พิมพ์</label>
-             <textarea className="w-full border rounded p-2 text-sm" rows="2" placeholder="รับกลับไปแก้ไขหรือไม่? รายละเอียด..." value={formData.makerAction} onChange={e => setFormData({...formData, makerAction: e.target.value})}></textarea>
+             <textarea className="w-full border rounded p-2 text-sm" rows={2} placeholder="รับกลับไปแก้ไขหรือไม่? รายละเอียด..." value={formData.makerAction} onChange={e => setFormData({...formData, makerAction: e.target.value})}></textarea>
              <div className="grid grid-cols-2 gap-4">
                 <div><label className="block text-xs text-gray-600">วันที่แม่พิมพ์ส่งกลับมา</label><input type="date" className="w-full border p-1 rounded mt-1 text-sm" value={formData.deliveryDate} onChange={e=>setFormData({...formData, deliveryDate:e.target.value})} /></div>
                 <div><label className="block text-xs text-gray-600">วันที่ Trial ครั้งต่อไป</label><input type="date" className="w-full border p-1 rounded mt-1 text-sm" value={formData.nextTrialDate} onChange={e=>setFormData({...formData, nextTrialDate:e.target.value})} /></div>
@@ -703,15 +702,15 @@ export default function App() {
 
   const ReportView = () => {
     const allPartTrials = trials.filter(t => t.partId === path.part.id);
-    const [selectedTrialIds, setSelectedTrialIds] = useState(allPartTrials.map(t => t.id));
+    const [selectedTrialIds, setSelectedTrialIds] = useState<any[]>(allPartTrials.map(t => t.id));
     const partTrialsToReport = allPartTrials.filter(t => selectedTrialIds.includes(t.id));
 
-    const handleToggle = (id) => {
+    const handleToggle = (id: any) => {
       if (selectedTrialIds.includes(id)) {
         setSelectedTrialIds(selectedTrialIds.filter(tid => tid !== id));
       } else {
-        setSelectedTrialIds([...selectedTrialIds, id].sort((a,b) => {
-          return allPartTrials.find(t=>t.id===a).trialNo - allPartTrials.find(t=>t.id===b).trialNo;
+        setSelectedTrialIds([...selectedTrialIds, id].sort((a: any, b: any) => {
+          return allPartTrials.find((t: any)=>t.id===a).trialNo - allPartTrials.find((t: any)=>t.id===b).trialNo;
         }));
       }
     };
@@ -776,14 +775,14 @@ export default function App() {
               <div><span className="font-semibold text-gray-600">STD Cycle Time:</span> {path.part.stdCycleTime} ± {path.part.stdCycleTimeTol || 0} sec</div>
             </div>
             <div className="w-1/3 border border-gray-200 rounded p-2 flex items-center justify-center bg-white overflow-hidden">
-              {path.part.img ? <img src={path.part.img} className="max-h-32 object-contain cursor-pointer" alt="Part" onClick={(e) => { e.stopPropagation(); setZoomedImg(path.part.img); }} /> : <span className="text-gray-300">No Image</span>}
+              {path.part.img ? <img src={path.part.img} className="max-h-32 object-contain cursor-pointer" alt="Part" onClick={(e: any) => { e.stopPropagation(); setZoomedImg(path.part.img); }} /> : <span className="text-gray-300">No Image</span>}
             </div>
           </div>
 
           {partTrialsToReport.length === 0 && <p className="text-center text-gray-400 py-10">--- กรุณาเลือก Trial ที่ต้องการพิมพ์จากแผงควบคุมด้านบน ---</p>}
 
           <div className="space-y-12">
-            {partTrialsToReport.map((t, index) => (
+            {partTrialsToReport.map((t: any, index: number) => (
               <div key={t.id} className={`${index !== 0 ? 'page-break-before' : ''}`}>
                 <div className="border-2 border-gray-300 rounded-lg p-0 bg-white overflow-hidden">
                   <div className="print-exact-color bg-gray-800 text-white p-2 flex justify-between items-center">
@@ -815,9 +814,9 @@ export default function App() {
                       <div className="border border-red-200 rounded p-2 bg-red-50/30">
                          <h4 className="font-bold text-red-800 text-xs border-b border-red-200 pb-1 mb-2">PART DEFECTS (ปัญหาชิ้นงาน)</h4>
                          <div className="grid grid-cols-2 gap-2">
-                           {t.partProblems.map(p => (
+                           {t.partProblems.map((p: any) => (
                               <div key={p.id} className="flex gap-2 text-xs">
-                                 {p.img && <img src={p.img} className="w-16 h-16 object-cover border cursor-pointer" alt="NG" onClick={(e) => { e.stopPropagation(); setZoomedImg(p.img); }} />}
+                                 {p.img && <img src={p.img} className="w-16 h-16 object-cover border cursor-pointer" alt="NG" onClick={(e: any) => { e.stopPropagation(); setZoomedImg(p.img); }} />}
                                  <div>
                                    <div className="font-bold text-red-700">{p.defect}</div>
                                    <div className="text-gray-600">{p.note}</div>
@@ -832,9 +831,9 @@ export default function App() {
                       <div className="border border-orange-200 rounded p-2 bg-orange-50/30">
                          <h4 className="font-bold text-orange-800 text-xs border-b border-orange-200 pb-1 mb-2">MOLD DEFECTS (ปัญหาแม่พิมพ์)</h4>
                          <div className="grid grid-cols-2 gap-2">
-                           {t.moldProblems.map(p => (
+                           {t.moldProblems.map((p: any) => (
                               <div key={p.id} className="flex gap-2 text-xs">
-                                 {p.img && <img src={p.img} className="w-16 h-16 object-cover border cursor-pointer" alt="Mold NG" onClick={(e) => { e.stopPropagation(); setZoomedImg(p.img); }} />}
+                                 {p.img && <img src={p.img} className="w-16 h-16 object-cover border cursor-pointer" alt="Mold NG" onClick={(e: any) => { e.stopPropagation(); setZoomedImg(p.img); }} />}
                                  <div>
                                    <div className="text-gray-700">{p.note}</div>
                                  </div>
@@ -847,24 +846,24 @@ export default function App() {
                     <div className="border border-blue-200 rounded p-2 bg-blue-50/20">
                         <h4 className="font-bold text-blue-800 text-xs border-b border-blue-200 pb-1 mb-2">ATTACHMENTS (รูปภาพอ้างอิงการตั้งค่าหน้างาน)</h4>
                         <div className="flex flex-wrap gap-2">
-                            {t.images.setupClose && <div className="text-center w-20"><img src={t.images.setupClose} className="h-16 w-full object-contain border bg-white cursor-pointer" alt="Close" onClick={(e) => { e.stopPropagation(); setZoomedImg(t.images.setupClose); }}/><div className="text-[10px] mt-1">แม่พิมพ์ปิด</div></div>}
-                            {t.images.setupOpen && <div className="text-center w-20"><img src={t.images.setupOpen} className="h-16 w-full object-contain border bg-white cursor-pointer" alt="Open" onClick={(e) => { e.stopPropagation(); setZoomedImg(t.images.setupOpen); }}/><div className="text-[10px] mt-1">แม่พิมพ์เปิด</div></div>}
-                            {t.images.cav && <div className="text-center w-20"><img src={t.images.cav} className="h-16 w-full object-contain border bg-white cursor-pointer" alt="Cav" onClick={(e) => { e.stopPropagation(); setZoomedImg(t.images.cav); }}/><div className="text-[10px] mt-1">ฝั่ง Cavity</div></div>}
-                            {t.images.core && <div className="text-center w-20"><img src={t.images.core} className="h-16 w-full object-contain border bg-white cursor-pointer" alt="Core" onClick={(e) => { e.stopPropagation(); setZoomedImg(t.images.core); }}/><div className="text-[10px] mt-1">ฝั่ง Core</div></div>}
-                            {t.images.coreEjector && <div className="text-center w-20"><img src={t.images.coreEjector} className="h-16 w-full object-contain border bg-white cursor-pointer" alt="Core EJ" onClick={(e) => { e.stopPropagation(); setZoomedImg(t.images.coreEjector); }}/><div className="text-[10px] mt-1">เช็คปลดงาน</div></div>}
-                            {t.images.resin && <div className="text-center w-20"><img src={t.images.resin} className="h-16 w-full object-contain border bg-white cursor-pointer" alt="Resin" onClick={(e) => { e.stopPropagation(); setZoomedImg(t.images.resin); }}/><div className="text-[10px] mt-1">กระสอบเม็ด</div></div>}
-                            {t.images.machine && <div className="text-center w-20"><img src={t.images.machine} className="h-16 w-full object-contain border bg-white cursor-pointer" alt="Mc" onClick={(e) => { e.stopPropagation(); setZoomedImg(t.images.machine); }}/><div className="text-[10px] mt-1">เครื่องจักร</div></div>}
+                            {t.images.setupClose && <div className="text-center w-20"><img src={t.images.setupClose} className="h-16 w-full object-contain border bg-white cursor-pointer" alt="Close" onClick={(e: any) => { e.stopPropagation(); setZoomedImg(t.images.setupClose); }}/><div className="text-[10px] mt-1">แม่พิมพ์ปิด</div></div>}
+                            {t.images.setupOpen && <div className="text-center w-20"><img src={t.images.setupOpen} className="h-16 w-full object-contain border bg-white cursor-pointer" alt="Open" onClick={(e: any) => { e.stopPropagation(); setZoomedImg(t.images.setupOpen); }}/><div className="text-[10px] mt-1">แม่พิมพ์เปิด</div></div>}
+                            {t.images.cav && <div className="text-center w-20"><img src={t.images.cav} className="h-16 w-full object-contain border bg-white cursor-pointer" alt="Cav" onClick={(e: any) => { e.stopPropagation(); setZoomedImg(t.images.cav); }}/><div className="text-[10px] mt-1">ฝั่ง Cavity</div></div>}
+                            {t.images.core && <div className="text-center w-20"><img src={t.images.core} className="h-16 w-full object-contain border bg-white cursor-pointer" alt="Core" onClick={(e: any) => { e.stopPropagation(); setZoomedImg(t.images.core); }}/><div className="text-[10px] mt-1">ฝั่ง Core</div></div>}
+                            {t.images.coreEjector && <div className="text-center w-20"><img src={t.images.coreEjector} className="h-16 w-full object-contain border bg-white cursor-pointer" alt="Core EJ" onClick={(e: any) => { e.stopPropagation(); setZoomedImg(t.images.coreEjector); }}/><div className="text-[10px] mt-1">เช็คปลดงาน</div></div>}
+                            {t.images.resin && <div className="text-center w-20"><img src={t.images.resin} className="h-16 w-full object-contain border bg-white cursor-pointer" alt="Resin" onClick={(e: any) => { e.stopPropagation(); setZoomedImg(t.images.resin); }}/><div className="text-[10px] mt-1">กระสอบเม็ด</div></div>}
+                            {t.images.machine && <div className="text-center w-20"><img src={t.images.machine} className="h-16 w-full object-contain border bg-white cursor-pointer" alt="Mc" onClick={(e: any) => { e.stopPropagation(); setZoomedImg(t.images.machine); }}/><div className="text-[10px] mt-1">เครื่องจักร</div></div>}
                             
-                            {t.equipmentImages.map(eq => eq.img && (
+                            {t.equipmentImages.map((eq: any) => eq.img && (
                                 <div key={eq.id} className="text-center w-20">
-                                   <img src={eq.img} className="h-16 w-full object-contain border bg-white cursor-pointer" alt="Eq" onClick={(e) => { e.stopPropagation(); setZoomedImg(eq.img); }}/>
+                                   <img src={eq.img} className="h-16 w-full object-contain border bg-white cursor-pointer" alt="Eq" onClick={(e: any) => { e.stopPropagation(); setZoomedImg(eq.img); }}/>
                                    <div className="text-[10px] mt-1 truncate">{eq.note || 'อุปกรณ์เสริม'}</div>
                                 </div>
                             ))}
                             
-                            {t.monitorImages.map(m => m.img && (
+                            {t.monitorImages.map((m: any) => m.img && (
                                 <div key={m.id} className="text-center w-20">
-                                   <img src={m.img} className="h-16 w-full object-contain border bg-white cursor-pointer" alt="Monitor" onClick={(e) => { e.stopPropagation(); setZoomedImg(m.img); }}/>
+                                   <img src={m.img} className="h-16 w-full object-contain border bg-white cursor-pointer" alt="Monitor" onClick={(e: any) => { e.stopPropagation(); setZoomedImg(m.img); }}/>
                                    <div className="text-[10px] mt-1 truncate">{m.note || 'หน้าจอ'}</div>
                                 </div>
                             ))}
@@ -875,9 +874,9 @@ export default function App() {
                       <div className="border border-green-200 rounded p-2 bg-green-50/20 mt-2">
                           <h4 className="font-bold text-green-800 text-xs border-b border-green-200 pb-1 mb-2">MEETING & DISCUSSION (ภาพบรรยากาศการประชุมหลังทดลอง)</h4>
                           <div className="flex flex-wrap gap-2">
-                              {t.meetingImages.map(m => m.img && (
+                              {t.meetingImages.map((m: any) => m.img && (
                                   <div key={m.id} className="text-center w-24">
-                                     <img src={m.img} className="h-16 w-full object-contain border bg-white cursor-pointer" alt="Meeting" onClick={(e) => { e.stopPropagation(); setZoomedImg(m.img); }}/>
+                                     <img src={m.img} className="h-16 w-full object-contain border bg-white cursor-pointer" alt="Meeting" onClick={(e: any) => { e.stopPropagation(); setZoomedImg(m.img); }}/>
                                   </div>
                               ))}
                           </div>
