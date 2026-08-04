@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState, useEffect } from 'react';
 import { 
   FolderKanban, Settings, Box, Activity, Camera, Plus, 
@@ -161,10 +160,7 @@ const initialModels = [
   { id: 2, clientId: 1, name: '34AA' },
   { id: 3, clientId: 1, name: 'P700' },
 ];
-const initialSchedules = [
-  { id: 1, date: '2026-07-02', time: '08:00', type: 'trial', title: 'INJ SHROUD COMP MMAA', detail: 'WITH NEW BENDING JIG', reqMachineSent: true, prodApproved: false, planStatus: 'on_time' },
-  { id: 2, date: '2026-07-03', time: '13:00', type: 'trial', title: 'INJ ORDER MODEL 471', detail: 'BRACKET 2 MOLD', reqMachineSent: true, prodApproved: true, planStatus: 'on_time' },
-];
+const initialSchedules = [];
 const initialParts = [
   { 
     id: 1, modelId: 1, code: '82333-3DA7-H010-M1-0000\n82733-3DA7-H010-M1-0000', 
@@ -220,7 +216,7 @@ export default function App() {
         if(d.exists()) setModels(d.data().list); else setDoc(doc(db, 'wisdom', 'models'), {list: initialModels});
     });
     const unsubS = onSnapshot(doc(db, 'wisdom', 'schedules'), d => {
-        if(d.exists()) setSchedules(d.data().list); else setDoc(doc(db, 'wisdom', 'schedules'), {list: initialSchedules});
+        if(d.exists()) setSchedules(d.data().list || []); else setDoc(doc(db, 'wisdom', 'schedules'), {list: initialSchedules});
     });
     
     const unsubP = onSnapshot(collection(db, 'parts'), snap => setParts(snap.docs.map(d=>d.data())));
@@ -279,21 +275,28 @@ export default function App() {
       }
     };
 
+    // === แกะบั๊กการสร้างคิว: สร้าง ID ให้ไม่ซ้ำกันแน่นอน 100% ===
     const handleSaveBooking = () => {
       if(!bookingData.date || !bookingData.title) return alert('กรุณาใส่วันที่และหัวข้องาน');
+      
       if (bookingData.id) {
+         // กรณีแก้ไขคิวเดิม
          updateSchedules(schedules.map(s => s.id === bookingData.id ? { ...bookingData } : s));
       } else {
-         updateSchedules([...schedules, { id: Date.now(), ...bookingData }]);
+         // กรณีเพิ่มคิวใหม่ สร้าง ID จากเวลา + สุ่มเลข เพื่อรับประกันความไม่ซ้ำ
+         const uniqueId = Date.now() + Math.random();
+         updateSchedules([...schedules, { ...bookingData, id: uniqueId }]);
       }
       setIsBooking(false);
       setBookingData(getInitialBookingData());
     };
 
-    // === แก้ไขฟังก์ชันลบให้ใช้ ID เท่านั้น เพื่อป้องกันไม่ให้ข้อมูลในวันเดียวกันหายทั้งหมด ===
-    const handleDeleteBooking = (id) => {
+    // === แกะบั๊กการลบคิว: บังคับลบเฉพาะอันที่ ID ตรงกันเป๊ะๆ เท่านั้น ===
+    const handleDeleteBooking = (idToDelete) => {
       if(window.confirm('ยืนยันการลบรายการนัดหมายนี้ใช่หรือไม่?')){
-         updateSchedules(schedules.filter(s => s.id !== id));
+         // เก็บรายการทั้งหมดเอาไว้ ยกเว้นรายการที่มี ID ตรงกับที่กดลบ
+         const newSchedulesList = schedules.filter(s => s.id !== idToDelete);
+         updateSchedules(newSchedulesList);
          setIsBooking(false);
          setBookingData(getInitialBookingData());
       }
@@ -784,7 +787,7 @@ export default function App() {
                  className="w-full border px-3 py-2 rounded focus:ring-2 outline-none whitespace-pre-wrap resize-y bg-white" 
                  onChange={e => setPartInput({...partInput, name: e.target.value})} 
               />
-               
+              
               <div className="grid grid-cols-2 gap-4">
                 <input type="text" placeholder="พลาสติก/สี (Material/Color)" value={partInput.material || ''} className="border px-3 py-2 rounded bg-white outline-none focus:ring-2" onChange={e => setPartInput({...partInput, material: e.target.value})} />
                 <input type="text" placeholder="Cavity (เช่น 1+1)" value={partInput.cavity || ''} className="border px-3 py-2 rounded bg-white outline-none focus:ring-2" onChange={e => setPartInput({...partInput, cavity: e.target.value})} />
@@ -797,7 +800,7 @@ export default function App() {
                     <Plus size={12} className="mr-1"/> เพิ่มช่อง
                   </button>
                 </div>
-                 
+                
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {(partInput.cavities || []).map((cav) => (
                      <div key={cav.id} className="p-2 bg-gray-50 rounded border relative group">
@@ -806,7 +809,7 @@ export default function App() {
                              <X size={12}/>
                           </button>
                         )}
-                         
+                        
                         <input 
                            type="text" 
                            value={cav.name} 
@@ -837,7 +840,7 @@ export default function App() {
               </div>
 
             </div>
-             
+            
             <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-2 bg-white relative min-h-[160px]">
                <input type="file" accept="image/*" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" onChange={(e) => {
                   if (e.target.files && e.target.files[0]) {
@@ -875,7 +878,7 @@ export default function App() {
                   <div className="text-gray-600 text-xs md:text-sm space-y-1">
                     <p className="whitespace-pre-wrap"><strong>ชื่อ:</strong><br/>{p.name}</p>
                     <p className="truncate mt-1"><strong>MAT:</strong> {p.material}</p>
-                     
+                    
                     <div className="bg-gray-50 p-1.5 rounded border text-[11px] space-y-0.5 mt-1">
                       {p.cavities && p.cavities.length > 0 ? (
                          p.cavities.map(c => (
@@ -949,7 +952,7 @@ export default function App() {
                   <div className="md:w-3/4">
                     <div className="flex items-center mb-3 border-b pb-2 flex-wrap gap-1">
                       <span className="bg-blue-100 text-blue-800 font-bold px-3 py-1 rounded-full text-sm mr-2">Trial #{t.trialNo}</span>
-                       
+                      
                       {t.status === 'completed' ? (
                         <span className="bg-green-100 text-green-700 px-2.5 py-0.5 rounded-full text-xs font-bold mr-2 flex items-center"><CheckCircle2 size={12} className="mr-1"/> เสร็จสิ้น</span>
                       ) : t.status === 'pending_customer' ? (
@@ -963,7 +966,7 @@ export default function App() {
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 text-sm mb-2 bg-gray-50 p-2 rounded">
-                       
+                      
                       <div className="space-y-0.5">
                         {(path.part.cavities || []).map(cav => {
                            const actVal = selectedCond?.actWeights?.[cav.id] || '';
@@ -980,7 +983,7 @@ export default function App() {
                         <strong>C/T ACT:</strong> {selectedCond?.actCycleTime || '-'} sec
                       </div>
                     </div>
-                     
+                    
                     <div className="text-sm bg-red-50/50 p-2 rounded border border-red-100 mt-2">
                       <strong className="text-red-600">ปัญหาที่พบ:</strong>
                       {t.partProblems.length === 0 && t.moldProblems.length === 0 ? (
@@ -1040,7 +1043,7 @@ export default function App() {
       if (type === 'part') setFormData({...formData, partProblems: [...formData.partProblems, { ...newProblem, defect: 'Flash (รอยครีบ)' }]});
       if (type === 'mold') setFormData({...formData, moldProblems: [...formData.moldProblems, newProblem]});
     };
-     
+    
     const updateProblem = (type, id, field, value) => {
       if (type === 'part') setFormData({...formData, partProblems: formData.partProblems.map(p => p.id === id ? {...p, [field]: value} : p)});
       if (type === 'mold') setFormData({...formData, moldProblems: formData.moldProblems.map(p => p.id === id ? {...p, [field]: value} : p)});
@@ -1106,7 +1109,7 @@ export default function App() {
                <ImageUpload label="ฝั่ง Core" value={formData.images.core} onChange={(url) => setFormData({...formData, images: {...formData.images, core: url}})} onZoom={setZoomedImg} />
                <ImageUpload label="ฝั่ง Core (เช็คปลดงาน)" value={formData.images.coreEjector} onChange={(url) => setFormData({...formData, images: {...formData.images, coreEjector: url}})} onZoom={setZoomedImg} />
              </div>
-              
+             
              <p className="font-semibold text-blue-800 text-sm border-b pb-1 mt-4">1.2 Material, Machine & Packing</p>
              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                <ImageUpload label="กระสอบเม็ดพลาสติก" value={formData.images?.resin} onChange={(url) => setFormData({...formData, images: {...formData.images, resin: url}})} onZoom={setZoomedImg} />
@@ -1159,7 +1162,7 @@ export default function App() {
 
         <div className="bg-white p-4 rounded-lg shadow space-y-4 border border-red-200">
           <h3 className="font-bold text-red-800 bg-red-50 p-2 rounded flex items-center"><AlertCircle className="mr-2" size={18}/> 2. บันทึกปัญหาที่พบ (Troubleshooting)</h3>
-           
+          
           <div className="border border-red-100 rounded p-3">
              <div className="flex justify-between items-center mb-2">
                <label className="font-semibold text-gray-700">ชิ้นงาน (Part Defect)</label>
@@ -1178,7 +1181,7 @@ export default function App() {
                       <textarea className="w-full text-sm p-2 border rounded focus:ring-1" rows="1" placeholder="รายละเอียด/ตำแหน่ง..." value={p.note || ''} onChange={(e) => updateProblem('part', p.id, 'note', e.target.value)}></textarea>
                       <textarea className="w-full text-sm p-2 border rounded focus:ring-1 bg-white" rows="1" placeholder="สาเหตุ (Cause)..." value={p.cause || ''} onChange={(e) => updateProblem('part', p.id, 'cause', e.target.value)}></textarea>
                       <textarea className="w-full text-sm p-2 border rounded focus:ring-1 bg-white" rows="1" placeholder="การแก้ไข (Countermeasure)..." value={p.fix || ''} onChange={(e) => updateProblem('part', p.id, 'fix', e.target.value)}></textarea>
-                       
+                      
                       <div className="flex gap-4 pt-1">
                          <label className="flex items-center gap-1 text-sm font-semibold cursor-pointer text-gray-700"><input type="radio" name={`part-status-${p.id}`} className="w-4 h-4 text-blue-600" checked={p.status === 'OK'} onChange={() => updateProblem('part', p.id, 'status', 'OK')} /> OK</label>
                          <label className="flex items-center gap-1 text-sm font-semibold cursor-pointer text-gray-700"><input type="radio" name={`part-status-${p.id}`} className="w-4 h-4 text-red-600" checked={p.status === 'NG'} onChange={() => updateProblem('part', p.id, 'status', 'NG')} /> NG</label>
@@ -1205,7 +1208,7 @@ export default function App() {
                       <textarea className="w-full text-sm p-2 border rounded focus:ring-1" rows="1" placeholder="รายละเอียด (เช่น สลักค้าง, น้ำรั่ว...)" value={p.note || ''} onChange={(e) => updateProblem('mold', p.id, 'note', e.target.value)}></textarea>
                       <textarea className="w-full text-sm p-2 border rounded focus:ring-1 bg-white" rows="1" placeholder="สาเหตุ (Cause)..." value={p.cause || ''} onChange={(e) => updateProblem('mold', p.id, 'cause', e.target.value)}></textarea>
                       <textarea className="w-full text-sm p-2 border rounded focus:ring-1 bg-white" rows="1" placeholder="การแก้ไข (Countermeasure)..." value={p.fix || ''} onChange={(e) => updateProblem('mold', p.id, 'fix', e.target.value)}></textarea>
-                       
+                      
                       <div className="flex gap-4 pt-1">
                          <label className="flex items-center gap-1 text-sm font-semibold cursor-pointer text-gray-700"><input type="radio" name={`mold-status-${p.id}`} className="w-4 h-4 text-blue-600" checked={p.status === 'OK'} onChange={() => updateProblem('mold', p.id, 'status', 'OK')} /> OK</label>
                          <label className="flex items-center gap-1 text-sm font-semibold cursor-pointer text-gray-700"><input type="radio" name={`mold-status-${p.id}`} className="w-4 h-4 text-red-600" checked={p.status === 'NG'} onChange={() => updateProblem('mold', p.id, 'status', 'NG')} /> NG</label>
@@ -1223,7 +1226,7 @@ export default function App() {
              <h3 className="font-bold text-green-800 flex items-center"><ClipboardCheck className="mr-2" size={18}/> 3. สรุปผล & Condition การผลิต</h3>
              <button onClick={addCondition} className="text-xs bg-green-600 text-white px-2.5 py-1 rounded shadow hover:bg-green-700 font-semibold">+ เพิ่ม Condition</button>
           </div>
-           
+          
           <div className="space-y-3">
              {formData.conditions.map((cond, idx) => {
                 return (
@@ -1406,7 +1409,7 @@ export default function App() {
     return (
       <div className="space-y-4">
         <style dangerouslySetInnerHTML={{__html: printStyles}} />
-         
+        
         <div className="no-print bg-white p-4 rounded-lg shadow border-t-4 border-blue-500">
           <div className="flex justify-between items-center mb-3 border-b pb-2">
              <h3 className="font-bold text-gray-700 flex items-center"><Printer className="mr-2 w-5 h-5"/> เลือก Trial ที่ต้องการพิมพ์ Report:</h3>
@@ -1449,7 +1452,7 @@ export default function App() {
                   <thead className="print-header">
                     <tr>
                       <td className="pb-3 border-b-0" style={{ paddingTop: '5mm' }}>
-                         
+                        
                         <div className="flex flex-col md:flex-row items-start justify-between border-b-[3px] border-blue-900 pb-2 mb-2 avoid-break shrink-0">
                           <div className="flex items-center">
                             <div className="mr-4">
@@ -1473,14 +1476,14 @@ export default function App() {
                             <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 mb-2">
                               <div className="col-span-1"><span className="font-semibold text-gray-600">Customer:</span> {path.client.name}</div>
                               <div className="col-span-1"><span className="font-semibold text-gray-600">Model:</span> {path.model.name}</div>
-                               
+                              
                               <div className="col-span-1 text-[13px] text-blue-900 font-bold border-b border-gray-200 pb-1 whitespace-pre-wrap pr-2">{path.part.code}</div>
                               <div className="col-span-1 text-[13px] text-gray-700 font-bold border-b border-gray-200 pb-1 whitespace-pre-wrap pl-2 border-l border-gray-100">{path.part.name}</div>
-                               
+                              
                               <div className="col-span-1"><span className="font-semibold text-gray-600">Material:</span> {path.part.material}</div>
                               <div className="col-span-1"><span className="font-semibold text-gray-600">Cavity:</span> {path.part.cavity}</div>
                             </div>
-                             
+                            
                             <div className="grid grid-cols-2 gap-2 mt-auto">
                               <div className="col-span-2 grid grid-cols-2 gap-2 bg-gray-50 p-1.5 rounded border border-gray-200">
                                 {(path.part.cavities || []).map(cav => (
@@ -1490,7 +1493,7 @@ export default function App() {
                               <div className="col-span-2 mt-0.5"><span className="font-semibold text-gray-600">STD Cycle Time:</span> {path.part.stdCycleTime} ± {path.part.stdCycleTimeTol || 0} sec</div>
                             </div>
                           </div>
-                           
+                          
                           <div className="w-1/3 border border-gray-300 rounded p-1 flex items-center justify-center bg-white min-h-[120px]">
                             {path.part.img ? <img src={path.part.img} className="max-h-32 object-contain" alt="Part" /> : <span className="text-gray-300 text-lg font-bold opacity-50">No Image</span>}
                           </div>
@@ -1592,7 +1595,7 @@ export default function App() {
                         </td>
                       </tr>
                     )}
-                     
+                    
                     {t.moldProblems.length > 0 && (
                       <tr className="print-row">
                         <td className="pb-2">
@@ -1638,14 +1641,14 @@ export default function App() {
                                 {t.images.resin && <div className="text-center w-[18%] md:w-16"><img src={t.images.resin} className="h-12 md:h-16 w-full object-cover border border-gray-300 rounded" alt="Resin"/><div className="print-small mt-0.5 text-gray-600">กระสอบเม็ด</div></div>}
                                 {t.images.machine && <div className="text-center w-[18%] md:w-16"><img src={t.images.machine} className="h-12 md:h-16 w-full object-cover border border-gray-300 rounded" alt="Mc"/><div className="print-small mt-0.5 text-gray-600">เครื่องจักร</div></div>}
                                 {t.images.packing && <div className="text-center w-[18%] md:w-16"><img src={t.images.packing} className="h-12 md:h-16 w-full object-cover border border-gray-300 rounded" alt="Packing"/><div className="print-small mt-0.5 text-gray-600">Box/Packing</div></div>}
-                                 
+                                
                                 {t.equipmentImages.map(eq => eq.img && (
                                     <div key={eq.id} className="text-center w-[18%] md:w-16">
                                        <img src={eq.img} className="h-12 md:h-16 w-full object-cover border border-gray-300 rounded" alt="Eq"/>
                                        <div className="print-small mt-0.5 text-gray-600 truncate">{eq.note || 'อุปกรณ์เสริม'}</div>
                                     </div>
                                 ))}
-                                 
+                                
                                 {t.monitorImages.map(m => m.img && (
                                     <div key={m.id} className="text-center w-[18%] md:w-16">
                                        <img src={m.img} className="h-12 md:h-16 w-full object-cover border border-gray-300 rounded" alt="Monitor"/>
@@ -1686,7 +1689,7 @@ export default function App() {
                             <p><strong className="text-gray-700">รายละเอียดเพิ่มเติม:</strong> {t.makerAction || '-'}</p>
                             <p><strong className="text-gray-700">Next Delivery/Trial:</strong> {formatThaiDate(t.deliveryDate)} / {formatThaiDate(t.nextTrialDate)}</p>
                             <p><strong className="text-gray-700">Remarks (อื่นๆ):</strong> {t.remarks || '-'}</p>
-                             
+                            
                             <div className="flex flex-wrap justify-around items-end gap-4 mt-8 text-center">
                               {(t.signatures || [
                                 { id: 1, role: 'PE', name: t.peName || '' },
@@ -1731,7 +1734,7 @@ export default function App() {
                | NEW MODEL TRIAL
             </h1>
           </div>
-           
+          
           <div className="flex bg-blue-900 p-1 rounded-lg border border-blue-700">
             <button 
               onClick={() => { setActiveTab('projects'); setView('clients'); resetForms(); }} 
