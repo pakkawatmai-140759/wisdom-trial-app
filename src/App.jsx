@@ -53,7 +53,14 @@ const printStyles = `
   @media print {
     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: white; }
     .no-print { display: none !important; }
-    #printable-area { font-family: 'Arial', sans-serif !important; width: 100%; display: block; }
+    
+    body * { visibility: hidden; }
+    #printable-area, #printable-area * { visibility: visible; }
+    #printable-area { position: absolute; left: 0; top: 0; width: 100%; display: block; }
+
+    #printable-schedule-report, #printable-schedule-report * { visibility: visible; }
+    #printable-schedule-report { position: absolute; left: 0; top: 0; width: 100%; display: block !important; }
+
     table.print-table { width: 100%; border-collapse: collapse; }
     thead.print-header { display: table-header-group; }
     tbody.print-body { display: table-row-group; }
@@ -184,7 +191,8 @@ export default function App() {
   const [isBooking, setIsBooking] = useState(false);
   const getInitialBookingData = () => ({ 
     id: null, date: '', time: '', type: 'trial', title: '', detail: '', clientId: '', partId: '', machine: '', requester: '',
-    reqMachineSent: false, prodApproved: false, planStatus: 'on_time', rescheduleReason: ''
+    reqMachineSent: false, prodApproved: false, planStatus: 'on_time', rescheduleReason: '',
+    status: 'pending', proofImages: [] // ฟิลด์สถานะและรูปหลักฐาน
   });
   const [bookingData, setBookingData] = useState(getInitialBookingData());
 
@@ -194,7 +202,7 @@ export default function App() {
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [inputValue, setInputValue] = useState('');
   const [partInput, setPartInput] = useState({});
-  const [compInput, setCompInput] = useState(null); // ใช้สำหรับจัดการ Component ภายใน PartForm
+  const [compInput, setCompInput] = useState(null);
   const [formData, setFormData] = useState(null);
   const [selectedTrialIds, setSelectedTrialIds] = useState([]);
 
@@ -255,28 +263,22 @@ export default function App() {
 
   const CalendarView = () => {
     const monthNamesThai = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+    const [selectedScheduleIds, setSelectedScheduleIds] = useState([]);
 
     const handlePrevMonth = () => {
-      if (currentMonth === 0) {
-        setCurrentMonth(11);
-        setCurrentYear(currentYear - 1);
-      } else {
-        setCurrentMonth(currentMonth - 1);
-      }
+      if (currentMonth === 0) { setCurrentMonth(11); setCurrentYear(currentYear - 1); } 
+      else { setCurrentMonth(currentMonth - 1); }
+      setSelectedScheduleIds([]);
     };
 
     const handleNextMonth = () => {
-      if (currentMonth === 11) {
-        setCurrentMonth(0);
-        setCurrentYear(currentYear + 1);
-      } else {
-        setCurrentMonth(currentMonth + 1);
-      }
+      if (currentMonth === 11) { setCurrentMonth(0); setCurrentYear(currentYear + 1); } 
+      else { setCurrentMonth(currentMonth + 1); }
+      setSelectedScheduleIds([]);
     };
 
     const handleSaveBooking = () => {
       if(!bookingData.date || !bookingData.title) return alert('กรุณาใส่วันที่และหัวข้องาน');
-      
       if (bookingData.id) {
          updateSchedules(schedules.map(s => s.id === bookingData.id ? { ...bookingData } : s));
       } else {
@@ -289,15 +291,14 @@ export default function App() {
 
     const handleDeleteBooking = (idToDelete) => {
       if(window.confirm('ยืนยันการลบรายการนัดหมายนี้ใช่หรือไม่?')){
-         const newSchedulesList = schedules.filter(s => s.id !== idToDelete);
-         updateSchedules(newSchedulesList);
+         updateSchedules(schedules.filter(s => s.id !== idToDelete));
          setIsBooking(false);
          setBookingData(getInitialBookingData());
       }
     };
 
     const handleEditSchedule = (schedObj) => {
-      setBookingData({ ...schedObj });
+      setBookingData({ ...schedObj, status: schedObj.status || 'pending', proofImages: schedObj.proofImages || [] });
       setIsBooking(true);
       window.scrollTo(0, 0); 
     };
@@ -311,6 +312,14 @@ export default function App() {
          default: return typeCode;
        }
     };
+
+    const currentMonthSchedules = [...schedules]
+      .filter(s => {
+         if (!s.date) return false;
+         const [y, m] = s.date.split('-');
+         return parseInt(y) === currentYear && parseInt(m) === currentMonth + 1;
+      })
+      .sort((a,b) => new Date(a.date) - new Date(b.date));
 
     const renderCalendarGrid = () => {
       const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
@@ -343,20 +352,23 @@ export default function App() {
                 if(ev.type === 'meeting') colorClass = "bg-[#a3f0b6] text-[#2c7a3f] border-[#81e89b]"; 
                 if(ev.type === 'support') colorClass = "bg-[#fc9c42] text-white border-[#eb892d]"; 
                 
+                const isCompleted = ev.status === 'completed';
+
                 return (
                   <div 
                     key={ev.id} 
-                    className={`text-[9px] md:text-[10px] leading-tight p-1 rounded border shadow-sm truncate cursor-pointer hover:opacity-80 transition-opacity ${colorClass}`} 
+                    className={`text-[9px] md:text-[10px] leading-tight p-1 rounded border shadow-sm truncate cursor-pointer hover:opacity-80 transition-all ${isCompleted ? 'opacity-60 bg-gray-50 border-gray-200 text-gray-500' : colorClass}`} 
                     onClick={() => handleEditSchedule(ev)}
                   >
-                    <strong>{ev.time ? `${ev.time} ` : ''}{ev.title}</strong>
+                    <strong>
+                      {isCompleted && <span className="text-green-600 mr-1">✅</span>}
+                      {ev.time ? `${ev.time} ` : ''}{ev.title}
+                    </strong>
                     {ev.detail && <span className="block opacity-80 truncate">{ev.detail}</span>}
-                    {ev.type === 'trial' && (
+                    {ev.type === 'trial' && !isCompleted && (
                       <div className="mt-0.5 space-y-0.5">
                         {ev.reqMachineSent && <span className="block text-[8px] text-blue-700 font-semibold">✓ ขอเครื่องแล้ว</span>}
                         {ev.prodApproved && <span className="block text-[8px] text-green-700 font-semibold">✓ แผนอนุมัติ</span>}
-                        {ev.planStatus === 'moved_up' && <span className="block text-[8px] text-blue-700 font-bold">☑ เลื่อนเข้า</span>}
-                        {ev.planStatus === 'delayed' && <span className="block text-[8px] text-blue-700 font-bold">☑ เลื่อนออก</span>}
                       </div>
                     )}
                   </div>
@@ -386,14 +398,6 @@ export default function App() {
         </div>
       );
     };
-
-    const currentMonthSchedules = [...schedules]
-      .filter(s => {
-         if (!s.date) return false;
-         const [y, m] = s.date.split('-');
-         return parseInt(y) === currentYear && parseInt(m) === currentMonth + 1;
-      })
-      .sort((a,b) => new Date(a.date) - new Date(b.date));
 
     if (isBooking) {
       return (
@@ -440,80 +444,91 @@ export default function App() {
               <input type="text" className="w-full border p-2 rounded focus:ring-2 outline-none" placeholder="เช่น Test ประกอบที่ TRAD, จัดทำ Jig ให้เสร็จ..." value={bookingData.detail} onChange={e => setBookingData({...bookingData, detail: e.target.value})} />
             </div>
 
+            {/* === สถานะความสำเร็จ & แนบรูป === */}
+            <div className="bg-gray-50 p-4 rounded border border-gray-200 mt-4 shadow-sm">
+               <h4 className="text-sm font-bold text-gray-800 border-b border-gray-300 pb-1 mb-3">สถานะความสำเร็จของงาน (Job Status)</h4>
+               
+               <div className="flex gap-4 mb-3">
+                   <label className={`flex flex-1 items-center justify-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-all ${bookingData.status === 'pending' ? 'bg-white border-blue-500 shadow-md text-blue-800 font-bold' : 'bg-gray-100 border-gray-200 text-gray-500 hover:bg-gray-50'}`}>
+                       <input type="radio" className="hidden" checked={bookingData.status === 'pending'} onChange={() => setBookingData({...bookingData, status: 'pending'})} />
+                       ⏳ รอดำเนินการ
+                   </label>
+                   <label className={`flex flex-1 items-center justify-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-all ${bookingData.status === 'completed' ? 'bg-green-50 border-green-500 shadow-md text-green-800 font-bold' : 'bg-gray-100 border-gray-200 text-gray-500 hover:bg-gray-50'}`}>
+                       <input type="radio" className="hidden" checked={bookingData.status === 'completed'} onChange={() => setBookingData({...bookingData, status: 'completed'})} />
+                       ✅ เสร็จสิ้นแล้ว
+                   </label>
+               </div>
+
+               {bookingData.status === 'completed' && (
+                   <div className="p-3 bg-white border border-green-200 rounded-lg animate-in fade-in">
+                       <div className="flex justify-between items-center mb-3">
+                          <label className="text-sm font-bold text-green-800">แนบรูปถ่ายหลักฐานปิดงาน (สูงสุด 3 รูป)</label>
+                          {bookingData.proofImages.length < 3 && (
+                             <button type="button" onClick={() => {
+                                const input = document.createElement('input');
+                                input.type = 'file'; input.accept = 'image/*';
+                                input.onchange = (e) => {
+                                    if(e.target.files && e.target.files[0]) {
+                                        compressImage(e.target.files[0], (url) => {
+                                            setBookingData(prev => ({...prev, proofImages: [...prev.proofImages, {id: Date.now(), img: url}]}));
+                                        });
+                                    }
+                                };
+                                input.click();
+                             }} className="text-xs bg-green-600 text-white px-3 py-1.5 rounded shadow font-bold hover:bg-green-700 flex items-center">
+                                <Camera size={14} className="mr-1"/> เพิ่มรูปภาพ
+                             </button>
+                          )}
+                       </div>
+                       <div className="flex gap-3 flex-wrap">
+                          {bookingData.proofImages.map(img => (
+                             <div key={img.id} className="relative group w-24 h-24 border-2 border-gray-200 rounded-lg bg-gray-50">
+                                <button type="button" onClick={() => setBookingData(prev => ({...prev, proofImages: prev.proofImages.filter(x => x.id !== img.id)}))} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 z-10 hidden group-hover:block shadow-md"><X size={12}/></button>
+                                <img src={img.img} className="w-full h-full object-cover rounded-lg cursor-pointer hover:opacity-80" onClick={(e) => {e.stopPropagation(); setZoomedImg(img.img);}} alt="proof" />
+                             </div>
+                          ))}
+                          {bookingData.proofImages.length === 0 && (
+                             <div className="w-full py-6 text-center text-sm font-semibold text-gray-400 border-2 border-dashed border-gray-200 rounded-lg">
+                                ยังไม่มีรูปหลักฐาน กดเพิ่มรูปด้านบน
+                             </div>
+                          )}
+                       </div>
+                   </div>
+               )}
+            </div>
+
             {bookingData.type === 'trial' && (
-              <>
-                <div className="bg-yellow-50 p-3 rounded border border-yellow-200 grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">เลือกลูกค้า</label>
-                    <select className="w-full border p-1.5 rounded focus:ring-2 outline-none text-sm" value={bookingData.clientId} onChange={e => setBookingData({...bookingData, clientId: Number(e.target.value), partId: ''})}>
-                      <option value="">-- ไม่ระบุ --</option>
-                      {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
-                  </div>
-                  {bookingData.clientId && (
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1">เลือกแม่พิมพ์</label>
-                      <select className="w-full border p-1.5 rounded focus:ring-2 outline-none text-sm" value={bookingData.partId} onChange={e => setBookingData({...bookingData, partId: Number(e.target.value)})}>
-                        <option value="">-- ไม่ระบุ --</option>
-                        {parts.filter(p => models.find(m => m.id === p.modelId)?.clientId === bookingData.clientId).map(p => (
-                          <option key={p.id} value={p.id}>{p.code.split('\n')[0]}{p.code.includes('\n')?'...':''}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">เครื่องจักร</label>
-                    <input type="text" className="w-full border p-1.5 rounded outline-none text-sm" placeholder="เช่น MC-250T" value={bookingData.machine} onChange={e => setBookingData({...bookingData, machine: e.target.value})} />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">ผู้จอง (PE)</label>
-                    <input type="text" className="w-full border p-1.5 rounded outline-none text-sm" placeholder="ชื่อ..." value={bookingData.requester} onChange={e => setBookingData({...bookingData, requester: e.target.value})} />
-                  </div>
-                </div>
-
-                <div className="bg-gray-50 p-4 rounded border border-gray-200 mt-4 space-y-4 shadow-sm">
-                  <h4 className="text-sm font-bold text-gray-800 border-b border-gray-300 pb-1">สถานะการเตรียม Trial (Preparation Status)</h4>
-                  
-                  <div className="flex flex-col sm:flex-row gap-4">
-                    <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer font-semibold hover:text-blue-700">
-                      <input type="checkbox" className="w-4 h-4 text-blue-600 rounded" checked={bookingData.reqMachineSent} onChange={e => setBookingData({...bookingData, reqMachineSent: e.target.checked})} />
-                      ส่งใบขอใช้เครื่องจักรแล้ว
-                    </label>
-                    <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer font-semibold hover:text-blue-700">
-                      <input type="checkbox" className="w-4 h-4 text-blue-600 rounded" checked={bookingData.prodApproved} onChange={e => setBookingData({...bookingData, prodApproved: e.target.checked})} />
-                      โปรดักชั่นอนุมัติแผน
-                    </label>
-                  </div>
-                  
-                  <div className="pt-2">
-                    <label className="block text-xs font-bold text-gray-700 mb-2">การปรับเลื่อนแผน (Reschedule)</label>
-                    <div className="flex flex-wrap gap-4 mb-3">
-                      <label className="flex items-center gap-1.5 text-sm cursor-pointer font-semibold text-gray-600">
-                        <input type="radio" name="planStatus" checked={bookingData.planStatus === 'on_time'} onChange={() => setBookingData({...bookingData, planStatus: 'on_time', rescheduleReason: ''})} className="w-4 h-4 text-blue-600 focus:ring-blue-500"/> ตามแผนเดิม
-                      </label>
-                      <label className="flex items-center gap-1.5 text-sm cursor-pointer font-semibold text-orange-600">
-                        <input type="radio" name="planStatus" checked={bookingData.planStatus === 'moved_up'} onChange={() => setBookingData({...bookingData, planStatus: 'moved_up'})} className="w-4 h-4 text-orange-500 focus:ring-orange-500"/> เลื่อนเข้า (เร็วขึ้น)
-                      </label>
-                      <label className="flex items-center gap-1.5 text-sm cursor-pointer font-semibold text-red-600">
-                        <input type="radio" name="planStatus" checked={bookingData.planStatus === 'delayed'} onChange={() => setBookingData({...bookingData, planStatus: 'delayed'})} className="w-4 h-4 text-red-600 focus:ring-red-500"/> เลื่อนออก (ล่าช้า)
-                      </label>
-                    </div>
-                    
-                    {bookingData.planStatus !== 'on_time' && (
-                      <input 
-                        type="text" 
-                        className="w-full border p-2 rounded outline-none text-sm border-orange-300 focus:ring-2 focus:ring-orange-500 bg-orange-50 placeholder-orange-300" 
-                        placeholder="โปรดระบุเหตุผลการเลื่อนแผน (เช่น รอเม็ดพลาสติก, เครื่องจักรเสีย)..." 
-                        value={bookingData.rescheduleReason} 
-                        onChange={e => setBookingData({...bookingData, rescheduleReason: e.target.value})} 
-                      />
-                    )}
-                  </div>
-                </div>
-              </>
+              <div className="bg-yellow-50 p-3 rounded border border-yellow-200 grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
+                 <div>
+                   <label className="block text-xs font-semibold text-gray-700 mb-1">เลือกลูกค้า</label>
+                   <select className="w-full border p-1.5 rounded focus:ring-2 outline-none text-sm" value={bookingData.clientId} onChange={e => setBookingData({...bookingData, clientId: Number(e.target.value), partId: ''})}>
+                     <option value="">-- ไม่ระบุ --</option>
+                     {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                   </select>
+                 </div>
+                 {bookingData.clientId && (
+                   <div>
+                     <label className="block text-xs font-semibold text-gray-700 mb-1">เลือกแม่พิมพ์</label>
+                     <select className="w-full border p-1.5 rounded focus:ring-2 outline-none text-sm" value={bookingData.partId} onChange={e => setBookingData({...bookingData, partId: Number(e.target.value)})}>
+                       <option value="">-- ไม่ระบุ --</option>
+                       {parts.filter(p => models.find(m => m.id === p.modelId)?.clientId === bookingData.clientId).map(p => (
+                         <option key={p.id} value={p.id}>{p.code.split('\n')[0]}{p.code.includes('\n')?'...':''}</option>
+                       ))}
+                     </select>
+                   </div>
+                 )}
+                 <div>
+                   <label className="block text-xs font-semibold text-gray-700 mb-1">เครื่องจักร</label>
+                   <input type="text" className="w-full border p-1.5 rounded outline-none text-sm" placeholder="เช่น MC-250T" value={bookingData.machine} onChange={e => setBookingData({...bookingData, machine: e.target.value})} />
+                 </div>
+                 <div>
+                   <label className="block text-xs font-semibold text-gray-700 mb-1">ผู้จอง (PE)</label>
+                   <input type="text" className="w-full border p-1.5 rounded outline-none text-sm" placeholder="ชื่อ..." value={bookingData.requester} onChange={e => setBookingData({...bookingData, requester: e.target.value})} />
+                 </div>
+              </div>
             )}
-
           </div>
+          
           <div className="flex justify-end items-center gap-2 mt-6">
             {bookingData.id && (
                <button onClick={() => handleDeleteBooking(bookingData.id)} className="mr-auto px-4 py-2 border border-red-500 text-red-600 rounded hover:bg-red-50 font-semibold flex items-center">
@@ -530,121 +545,209 @@ export default function App() {
     }
 
     return (
-      <div className="space-y-6">
-        <div className="space-y-2">
-          
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3 mb-2">
-             <div className="flex items-center gap-4">
-               <h2 className="text-xl font-bold flex items-center text-gray-800">
-                 <CalendarIcon className="mr-2" /> ปฏิทินจองคิว
-               </h2>
-               
-               <div className="flex items-center bg-white border border-gray-300 rounded-lg overflow-hidden shadow-sm">
-                 <button onClick={handlePrevMonth} className="px-3 py-1.5 hover:bg-gray-100 border-r border-gray-300 text-gray-600 transition-colors">
-                    <ChevronLeft size={18}/>
-                 </button>
-                 <span className="px-4 py-1.5 font-bold text-blue-900 min-w-[140px] text-center text-sm">
-                    {monthNamesThai[currentMonth]} {currentYear + 543}
-                 </span>
-                 <button onClick={handleNextMonth} className="px-3 py-1.5 hover:bg-gray-100 border-l border-gray-300 text-gray-600 transition-colors">
-                    <ChevronRight size={18}/>
-                 </button>
+      <>
+        <div className="no-print space-y-6">
+          <div className="space-y-2">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3 mb-2">
+               <div className="flex items-center gap-4">
+                 <h2 className="text-xl font-bold flex items-center text-gray-800">
+                   <CalendarIcon className="mr-2" /> ปฏิทินจองคิว
+                 </h2>
+                 <div className="flex items-center bg-white border border-gray-300 rounded-lg overflow-hidden shadow-sm">
+                   <button onClick={handlePrevMonth} className="px-3 py-1.5 hover:bg-gray-100 border-r border-gray-300 text-gray-600 transition-colors"><ChevronLeft size={18}/></button>
+                   <span className="px-4 py-1.5 font-bold text-blue-900 min-w-[140px] text-center text-sm">{monthNamesThai[currentMonth]} {currentYear + 543}</span>
+                   <button onClick={handleNextMonth} className="px-3 py-1.5 hover:bg-gray-100 border-l border-gray-300 text-gray-600 transition-colors"><ChevronRight size={18}/></button>
+                 </div>
                </div>
-             </div>
-             
-             <button onClick={() => { setBookingData(getInitialBookingData()); setIsBooking(true); }} className="bg-blue-600 text-white px-3 py-1.5 rounded text-sm font-bold shadow hover:bg-blue-700 flex items-center">
-               <Plus size={16} className="mr-1"/> เพิ่มงาน
-             </button>
-          </div>
+               <button onClick={() => { setBookingData(getInitialBookingData()); setIsBooking(true); }} className="bg-blue-600 text-white px-3 py-1.5 rounded text-sm font-bold shadow hover:bg-blue-700 flex items-center">
+                 <Plus size={16} className="mr-1"/> เพิ่มงาน
+               </button>
+            </div>
 
-          <div className="flex flex-wrap gap-3 text-xs font-semibold text-gray-600 mb-2">
-             <span className="flex items-center"><div className="w-3 h-3 bg-[#fff3c4] border border-[#fce988] rounded mr-1"></div> งานฉีด / Trial</span>
-             <span className="flex items-center"><div className="w-3 h-3 bg-[#6bb5ff] rounded mr-1"></div> งานจัดส่ง (Delivery)</span>
-             <span className="flex items-center"><div className="w-3 h-3 bg-[#fc9c42] rounded mr-1"></div> Support / Jig</span>
-             <span className="flex items-center"><div className="w-3 h-3 bg-[#a3f0b6] rounded mr-1"></div> นัดประชุม (Meeting)</span>
-             <span className="flex items-center ml-2 text-red-600"><div className="w-3 h-3 bg-red-100 border border-red-300 rounded mr-1"></div> วันหยุดนักขัตฤกษ์ / วันอาทิตย์</span>
-          </div>
-          
-          {renderCalendarGrid()}
+            <div className="flex flex-wrap gap-3 text-xs font-semibold text-gray-600 mb-2">
+               <span className="flex items-center"><div className="w-3 h-3 bg-[#fff3c4] border border-[#fce988] rounded mr-1"></div> งานฉีด / Trial</span>
+               <span className="flex items-center"><div className="w-3 h-3 bg-[#6bb5ff] rounded mr-1"></div> งานจัดส่ง (Delivery)</span>
+               <span className="flex items-center"><div className="w-3 h-3 bg-[#fc9c42] rounded mr-1"></div> Support / Jig</span>
+               <span className="flex items-center"><div className="w-3 h-3 bg-[#a3f0b6] rounded mr-1"></div> นัดประชุม (Meeting)</span>
+            </div>
+            
+            {renderCalendarGrid()}
 
-          <div className="mt-8 bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-             <div className="flex bg-gray-50 p-4 border-b border-gray-200 items-center justify-between">
-                <h3 className="font-bold text-gray-700 flex items-center">
-                   <CalendarDays size={18} className="mr-2 text-blue-600"/> 
-                   รายการนัดหมายประจำเดือน {monthNamesThai[currentMonth]}
-                </h3>
-             </div>
-             <div className="overflow-x-auto">
-               <table className="w-full text-sm text-left whitespace-nowrap">
-                 <thead className="bg-gray-100 text-gray-600 text-xs uppercase font-bold border-b border-gray-200">
-                   <tr>
-                     <th className="px-4 py-3 text-center w-28">วันที่</th>
-                     <th className="px-4 py-3 text-center w-24">เวลา</th>
-                     <th className="px-4 py-3 text-center w-36">ประเภท</th>
-                     <th className="px-4 py-3">หัวข้องาน (Title)</th>
-                     <th className="px-4 py-3 min-w-[250px]">รายละเอียด / หมายเหตุ</th>
-                     <th className="px-4 py-3 text-center w-24">จัดการ</th>
-                   </tr>
-                 </thead>
-                 <tbody className="text-gray-700 divide-y divide-gray-100">
-                   {currentMonthSchedules.map((s, i) => {
-                      let extraDetails = [];
-                      if (s.type === 'trial') {
-                         const clientName = clients.find(c => c.id === s.clientId)?.name;
-                         const partObj = parts.find(p => p.id === s.partId);
-                         const partCode = partObj ? partObj.code.split('\n')[0] : null;
+            <div className="mt-8 bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+               <div className="flex flex-col sm:flex-row bg-gray-50 p-4 border-b border-gray-200 items-center justify-between gap-3">
+                  <h3 className="font-bold text-gray-700 flex items-center">
+                     <CalendarDays size={18} className="mr-2 text-blue-600"/> 
+                     รายการนัดหมายประจำเดือน {monthNamesThai[currentMonth]}
+                  </h3>
+                  {/* === ระบบสั่งพิมพ์ Report งานประจำเดือน === */}
+                  <div className="flex gap-3 items-center">
+                     <button onClick={() => setSelectedScheduleIds(currentMonthSchedules.map(s=>s.id))} className="text-xs font-semibold text-blue-600 hover:underline">เลือกทั้งหมด</button>
+                     <span className="text-gray-300">|</span>
+                     <button onClick={() => setSelectedScheduleIds([])} className="text-xs font-semibold text-gray-500 hover:underline">ล้างทั้งหมด</button>
+                     <button onClick={() => window.print()} disabled={selectedScheduleIds.length === 0} className="text-xs bg-gray-800 text-white px-3 py-2 rounded-lg shadow font-bold disabled:bg-gray-300 disabled:cursor-not-allowed hover:bg-gray-900 transition-colors flex items-center">
+                        <Printer size={14} className="mr-1"/> พิมพ์ Report
+                     </button>
+                  </div>
+               </div>
+               <div className="overflow-x-auto">
+                 <table className="w-full text-sm text-left whitespace-nowrap">
+                   <thead className="bg-gray-100 text-gray-600 text-xs uppercase font-bold border-b border-gray-200">
+                     <tr>
+                       <th className="px-3 py-3 text-center w-12">
+                          <input type="checkbox" className="w-4 h-4 rounded text-blue-600 cursor-pointer"
+                              checked={selectedScheduleIds.length === currentMonthSchedules.length && currentMonthSchedules.length > 0}
+                              onChange={() => {
+                                  if(selectedScheduleIds.length === currentMonthSchedules.length) setSelectedScheduleIds([]);
+                                  else setSelectedScheduleIds(currentMonthSchedules.map(s => s.id));
+                              }}
+                          />
+                       </th>
+                       <th className="px-2 py-3 text-center w-24">วันที่</th>
+                       <th className="px-2 py-3 text-center w-20">เวลา</th>
+                       <th className="px-2 py-3 text-center w-32">ประเภท</th>
+                       <th className="px-4 py-3">หัวข้องาน (Title)</th>
+                       <th className="px-4 py-3 min-w-[200px]">รายละเอียด</th>
+                       <th className="px-2 py-3 text-center w-40">สถานะ / รูปหลักฐาน</th>
+                       <th className="px-2 py-3 text-center w-20">จัดการ</th>
+                     </tr>
+                   </thead>
+                   <tbody className="text-gray-700 divide-y divide-gray-100">
+                     {currentMonthSchedules.map((s, i) => {
+                        let extraDetails = [];
+                        if (s.type === 'trial') {
+                           const clientName = clients.find(c => c.id === s.clientId)?.name;
+                           const partObj = parts.find(p => p.id === s.partId);
+                           const partCode = partObj ? partObj.code.split('\n')[0] : null;
 
-                         if (clientName) extraDetails.push(clientName);
-                         if (partCode) extraDetails.push(`Mold: ${partCode}`);
-                         if (s.machine) extraDetails.push(`M/C: ${s.machine}`);
-                         if (s.requester) extraDetails.push(`PE: ${s.requester}`);
-                      }
+                           if (clientName) extraDetails.push(clientName);
+                           if (partCode) extraDetails.push(`Mold: ${partCode}`);
+                           if (s.machine) extraDetails.push(`M/C: ${s.machine}`);
+                           if (s.requester) extraDetails.push(`PE: ${s.requester}`);
+                        }
 
-                      return (
-                         <tr key={s.id} className="hover:bg-blue-50 transition-colors bg-white">
-                            <td className="px-4 py-3 text-center font-semibold text-blue-800">{formatThaiDate(s.date)}</td>
-                            <td className="px-4 py-3 text-center font-medium">{s.time || '-'}</td>
-                            <td className="px-4 py-3 text-center">
-                              <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                                 s.type === 'trial' ? 'bg-yellow-100 text-yellow-800' :
-                                 s.type === 'delivery' ? 'bg-blue-100 text-blue-800' :
-                                 s.type === 'meeting' ? 'bg-green-100 text-green-800' :
-                                 'bg-orange-100 text-orange-800'
-                              }`}>
-                                 {getTypeLabel(s.type)}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 font-bold text-gray-800">{s.title}</td>
-                            <td className="px-4 py-3 whitespace-normal">
-                               <div className="text-gray-600 leading-tight">{s.detail || (extraDetails.length === 0 ? '-' : '')}</div>
-                               {extraDetails.length > 0 && (
-                                  <div className="text-[10px] text-blue-600 font-semibold mt-1 leading-tight">
-                                     {extraDetails.join(' • ')}
-                                  </div>
-                               )}
-                            </td>
-                            <td className="px-4 py-3 flex items-center justify-center gap-2">
-                               <button onClick={() => handleEditSchedule(s)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-100 rounded transition-colors" title="แก้ไข">
-                                  <Edit2 size={16}/>
-                               </button>
-                               <button onClick={() => handleDeleteBooking(s.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-100 rounded transition-colors" title="ลบ">
-                                  <Trash2 size={16}/>
-                               </button>
-                            </td>
-                         </tr>
-                      );
-                   })}
-                   {currentMonthSchedules.length === 0 && (
-                      <tr>
-                         <td colSpan="6" className="text-center py-8 text-gray-500">ไม่มีข้อมูลนัดหมายในเดือนนี้</td>
-                      </tr>
-                   )}
-                 </tbody>
-               </table>
-             </div>
+                        const isCompleted = s.status === 'completed';
+
+                        return (
+                           <tr key={s.id} className={`hover:bg-blue-50 transition-colors ${isCompleted ? 'bg-gray-50/50' : 'bg-white'}`}>
+                              <td className="px-3 py-3 text-center">
+                                 <input type="checkbox" className="w-4 h-4 rounded text-blue-600 cursor-pointer"
+                                    checked={selectedScheduleIds.includes(s.id)}
+                                    onChange={() => setSelectedScheduleIds(prev => prev.includes(s.id) ? prev.filter(id => id !== s.id) : [...prev, s.id])}
+                                 />
+                              </td>
+                              <td className="px-2 py-3 text-center font-semibold text-blue-800">{formatThaiDate(s.date)}</td>
+                              <td className="px-2 py-3 text-center font-medium">{s.time || '-'}</td>
+                              <td className="px-2 py-3 text-center">
+                                <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                                   s.type === 'trial' ? 'bg-yellow-100 text-yellow-800' :
+                                   s.type === 'delivery' ? 'bg-blue-100 text-blue-800' :
+                                   s.type === 'meeting' ? 'bg-green-100 text-green-800' :
+                                   'bg-orange-100 text-orange-800'
+                                }`}>
+                                   {getTypeLabel(s.type)}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 font-bold text-gray-800">{s.title}</td>
+                              <td className="px-4 py-3 whitespace-normal">
+                                 <div className="text-gray-600 leading-tight text-xs">{s.detail || (extraDetails.length === 0 ? '-' : '')}</div>
+                                 {extraDetails.length > 0 && (
+                                    <div className="text-[10px] text-blue-600 font-semibold mt-1 leading-tight">
+                                       {extraDetails.join(' • ')}
+                                    </div>
+                                 )}
+                              </td>
+                              {/* === ช่องโชว์สถานะ และ รูปย่อ (Thumbnail) === */}
+                              <td className="px-2 py-3 text-center">
+                                 {isCompleted ? (
+                                    <div className="flex flex-col items-center gap-1.5">
+                                       <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center justify-center"><CheckCircle2 size={12} className="mr-1"/> เสร็จสิ้น</span>
+                                       {(s.proofImages || []).length > 0 && (
+                                          <div className="flex gap-1 justify-center">
+                                             {s.proofImages.map(img => (
+                                                <img key={img.id} src={img.img} className="w-8 h-8 object-cover rounded shadow-sm border border-gray-300 cursor-pointer hover:scale-110 transition-transform" onClick={(e) => {e.stopPropagation(); setZoomedImg(img.img);}} alt="proof" />
+                                             ))}
+                                          </div>
+                                       )}
+                                    </div>
+                                 ) : (
+                                    <span className="bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full text-[10px] font-bold">⏳ รอดำเนินการ</span>
+                                 )}
+                              </td>
+                              <td className="px-2 py-3 flex items-center justify-center gap-2 h-full">
+                                 <button onClick={() => handleEditSchedule(s)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-100 rounded transition-colors" title="แก้ไข">
+                                    <Edit2 size={16}/>
+                                 </button>
+                                 <button onClick={() => handleDeleteBooking(s.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-100 rounded transition-colors" title="ลบ">
+                                    <Trash2 size={16}/>
+                                 </button>
+                              </td>
+                           </tr>
+                        );
+                     })}
+                     {currentMonthSchedules.length === 0 && (
+                        <tr>
+                           <td colSpan="8" className="text-center py-8 text-gray-500 font-semibold border-b">ไม่มีข้อมูลนัดหมายในเดือนนี้</td>
+                        </tr>
+                     )}
+                   </tbody>
+                 </table>
+               </div>
+            </div>
           </div>
         </div>
-      </div>
+
+        {/* === หน้าตาของ Report สรุปงาน (โชว์เฉพาะตอนกดพิมพ์ PDF) === */}
+        <div id="printable-schedule-report" className="hidden print:block w-full bg-white font-sans text-black">
+            <div className="text-center mb-6 border-b-2 border-gray-800 pb-4">
+                <h2 className="text-xl font-bold text-gray-900 mb-1">รายงานสรุปนัดหมาย / การดำเนินงานประจำเดือน</h2>
+                <p className="text-sm font-semibold text-gray-600">ประจำเดือน {monthNamesThai[currentMonth]} {currentYear + 543}</p>
+            </div>
+            <table className="w-full border-collapse border border-gray-400 text-xs">
+                <thead className="bg-gray-100 print-exact-color">
+                    <tr>
+                        <th className="border border-gray-400 p-2 w-20 text-center">วันที่</th>
+                        <th className="border border-gray-400 p-2 w-16 text-center">เวลา</th>
+                        <th className="border border-gray-400 p-2 w-24 text-center">ประเภทงาน</th>
+                        <th className="border border-gray-400 p-2 text-left">หัวข้องาน & รายละเอียด</th>
+                        <th className="border border-gray-400 p-2 w-20 text-center">สถานะ</th>
+                        <th className="border border-gray-400 p-2 w-32 text-center">รูปหลักฐาน</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {currentMonthSchedules.filter(s => selectedScheduleIds.includes(s.id)).map(s => (
+                        <tr key={s.id} className="avoid-break">
+                            <td className="border border-gray-400 p-2 text-center font-bold">{formatThaiDate(s.date)}</td>
+                            <td className="border border-gray-400 p-2 text-center">{s.time || '-'}</td>
+                            <td className="border border-gray-400 p-2 text-center font-bold text-[10px]">{getTypeLabel(s.type)}</td>
+                            <td className="border border-gray-400 p-2">
+                                <div className="font-bold text-gray-900 mb-0.5 text-[13px]">{s.title}</div>
+                                <div className="text-gray-600 text-[11px] leading-tight">{s.detail || '-'}</div>
+                            </td>
+                            <td className="border border-gray-400 p-2 text-center font-bold text-[11px]">
+                                {s.status === 'completed' ? <span className="text-green-700">เสร็จสิ้น</span> : <span className="text-gray-500">รอดำเนินการ</span>}
+                            </td>
+                            <td className="border border-gray-400 p-1 text-center">
+                                {(s.proofImages || []).length > 0 ? (
+                                    <div className="flex justify-center gap-1 flex-wrap">
+                                        {s.proofImages.map(img => (
+                                            <img key={img.id} src={img.img} className="w-10 h-10 object-cover border border-gray-300 rounded-sm" alt="proof" />
+                                        ))}
+                                    </div>
+                                ) : '-'}
+                            </td>
+                        </tr>
+                    ))}
+                    {selectedScheduleIds.length === 0 && (
+                        <tr>
+                            <td colSpan="6" className="border border-gray-400 p-4 text-center text-gray-500 font-semibold">
+                                ไม่ได้เลือกรายการนัดหมายเพื่อพิมพ์
+                            </td>
+                        </tr>
+                    )}
+                </tbody>
+            </table>
+        </div>
+      </>
     );
   };
 
@@ -737,7 +840,6 @@ export default function App() {
        resetForms();
     }
 
-    // === ฟังก์ชันสำหรับจัดการแก้ไข/เพิ่ม Components ในหน้า PartForm ===
     const handleSaveComp = () => {
        if(!compInput.code && !compInput.name) return;
        const newList = partInput.componentsList || [];
@@ -846,7 +948,6 @@ export default function App() {
                 <input type="text" placeholder="Tooling Maker / Other" value={partInput.components || ''} className="border px-3 py-2 rounded bg-white outline-none focus:ring-2" onChange={e => setPartInput({...partInput, components: e.target.value})} />
               </div>
 
-              {/* === ส่วนเพิ่มชิ้นส่วนประกอบ (Components/Inserts) === */}
               <div className="mt-4 bg-white p-3 rounded border border-blue-200">
                  <div className="flex justify-between items-center mb-2">
                     <label className="text-sm font-bold text-blue-900">ชิ้นส่วนประกอบ (Insert / Components)</label>
@@ -955,7 +1056,6 @@ export default function App() {
                       <p className="text-orange-700 pt-1"><strong>C/T(STD):</strong> {p.stdCycleTime}±{p.stdCycleTimeTol || 0} s</p>
                     </div>
 
-                    {/* แสดงป้าย Component เล็กๆ ในการ์ดแม่พิมพ์ */}
                     {p.componentsList && p.componentsList.length > 0 && (
                        <div className="mt-2 flex items-center text-[10px] text-orange-700 font-bold bg-orange-50 px-2 py-1 rounded border border-orange-200 inline-block">
                           ⚠️ มีชิ้นส่วนประกอบ {p.componentsList.length} รายการ
@@ -1162,7 +1262,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* === ป้ายเตือนชิ้นส่วนประกอบ (Alert Badge) === */}
         {path.part.componentsList && path.part.componentsList.length > 0 && (
            <div className="bg-orange-50 border border-orange-300 p-4 rounded-xl shadow-sm mb-6">
               <h4 className="font-bold text-orange-800 flex items-center mb-3 text-lg"><AlertCircle size={20} className="mr-2"/> จุดที่ต้องระวัง: มีชิ้นส่วนประกอบ (Insert / Component)</h4>
@@ -1586,7 +1685,6 @@ export default function App() {
                               <div className="col-span-2 mt-0.5"><span className="font-semibold text-gray-600">STD Cycle Time:</span> {path.part.stdCycleTime} ± {path.part.stdCycleTimeTol || 0} sec</div>
                             </div>
 
-                            {/* === โชว์ Component ในใบ PDF (ถ้ามี) === */}
                             {path.part.componentsList && path.part.componentsList.length > 0 && (
                                <div className="col-span-2 mt-1.5 bg-orange-50 border border-orange-200 p-1.5 rounded">
                                   <span className="font-semibold text-orange-800 text-[10px] uppercase block mb-0.5">⚠️ Components / Inserts ({path.part.componentsList.length} items):</span>
