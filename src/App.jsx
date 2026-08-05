@@ -78,7 +78,6 @@ const formatThaiDate = (dateStr) => {
   return `${parts[2]}/${parts[1]}/${year}`; 
 };
 
-// วันหยุดนักขัตฤกษ์
 const PUBLIC_HOLIDAYS = [
   '2026-01-01', '2026-03-03', '2026-04-06', '2026-04-13', '2026-04-14', '2026-04-15', 
   '2026-05-01', '2026-05-04', '2026-05-31', '2026-06-03', '2026-07-20', '2026-07-21', 
@@ -153,7 +152,6 @@ const ImageUpload = ({ label, onChange, value, height = "h-24", onZoom }) => {
   );
 };
 
-// --- Initial Mock Data ---
 const initialClients = [{ id: 1, name: 'TS TECH (THAILAND) CO., LTD.' }];
 const initialModels = [
   { id: 1, clientId: 1, name: '3DAA' },
@@ -166,7 +164,8 @@ const initialParts = [
     id: 1, modelId: 1, code: '82333-3DA7-H010-M1-0000\n82733-3DA7-H010-M1-0000', 
     name: 'REC COVER R MID CUSH\nREC COVER L MID CUSH', material: 'PP CP-WPIN (NH900L)', cavity: '1+1', components: 'CSK JOB.701', img: '',
     cavities: [{ id: 1, name: 'R', std: '22', plus: '2', minus: '1' }, { id: 2, name: 'L', std: '22', plus: '2', minus: '1' }],
-    stdCycleTime: '75', stdCycleTimeTol: '5'
+    stdCycleTime: '75', stdCycleTimeTol: '5',
+    componentsList: []
   }
 ];
 
@@ -195,13 +194,13 @@ export default function App() {
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [inputValue, setInputValue] = useState('');
   const [partInput, setPartInput] = useState({});
+  const [compInput, setCompInput] = useState(null); // ใช้สำหรับจัดการ Component ภายใน PartForm
   const [formData, setFormData] = useState(null);
   const [selectedTrialIds, setSelectedTrialIds] = useState([]);
 
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
 
-  // === FIREBASE SYNC HOOK ===
   useEffect(() => {
     const initDB = async () => {
         const partsSnap = await getDocs(collection(db, 'parts'));
@@ -243,7 +242,7 @@ export default function App() {
 
   const resetForms = () => { 
     setAddingId(null); setEditingId(null); setConfirmDeleteId(null); setInputValue(''); 
-    setPartInput({}); setEditingTrialId(null); setIsBooking(false); 
+    setPartInput({}); setCompInput(null); setEditingTrialId(null); setIsBooking(false); 
   };
   
   const goBack = () => {
@@ -275,15 +274,12 @@ export default function App() {
       }
     };
 
-    // === แกะบั๊กการสร้างคิว: สร้าง ID ให้ไม่ซ้ำกันแน่นอน 100% ===
     const handleSaveBooking = () => {
       if(!bookingData.date || !bookingData.title) return alert('กรุณาใส่วันที่และหัวข้องาน');
       
       if (bookingData.id) {
-         // กรณีแก้ไขคิวเดิม
          updateSchedules(schedules.map(s => s.id === bookingData.id ? { ...bookingData } : s));
       } else {
-         // กรณีเพิ่มคิวใหม่ สร้าง ID จากเวลา + สุ่มเลข เพื่อรับประกันความไม่ซ้ำ
          const uniqueId = Date.now() + Math.random();
          updateSchedules([...schedules, { ...bookingData, id: uniqueId }]);
       }
@@ -291,10 +287,8 @@ export default function App() {
       setBookingData(getInitialBookingData());
     };
 
-    // === แกะบั๊กการลบคิว: บังคับลบเฉพาะอันที่ ID ตรงกันเป๊ะๆ เท่านั้น ===
     const handleDeleteBooking = (idToDelete) => {
       if(window.confirm('ยืนยันการลบรายการนัดหมายนี้ใช่หรือไม่?')){
-         // เก็บรายการทั้งหมดเอาไว้ ยกเว้นรายการที่มี ID ตรงกับที่กดลบ
          const newSchedulesList = schedules.filter(s => s.id !== idToDelete);
          updateSchedules(newSchedulesList);
          setIsBooking(false);
@@ -730,7 +724,8 @@ export default function App() {
     const handleSavePart = () => {
       const safePartInput = {
          ...partInput,
-         cavities: partInput.cavities && partInput.cavities.length > 0 ? partInput.cavities : [{ id: Date.now(), name: 'Cavity 1', std: '', plus: '', minus: '' }]
+         cavities: partInput.cavities && partInput.cavities.length > 0 ? partInput.cavities : [{ id: Date.now(), name: 'Cavity 1', std: '', plus: '', minus: '' }],
+         componentsList: partInput.componentsList || []
       };
       const partToSave = { id: editingId || Date.now(), modelId: path.model.id, ...safePartInput };
       setDoc(doc(db, 'parts', partToSave.id.toString()), partToSave);
@@ -741,6 +736,18 @@ export default function App() {
        deleteDoc(doc(db, 'parts', id.toString()));
        resetForms();
     }
+
+    // === ฟังก์ชันสำหรับจัดการแก้ไข/เพิ่ม Components ในหน้า PartForm ===
+    const handleSaveComp = () => {
+       if(!compInput.code && !compInput.name) return;
+       const newList = partInput.componentsList || [];
+       if (compInput.id) {
+          setPartInput({...partInput, componentsList: newList.map(c => c.id === compInput.id ? compInput : c)});
+       } else {
+          setPartInput({...partInput, componentsList: [...newList, { ...compInput, id: Date.now() }]});
+       }
+       setCompInput(null);
+    };
 
     const PartForm = () => {
       if (!partInput.cavities) {
@@ -839,6 +846,62 @@ export default function App() {
                 <input type="text" placeholder="Tooling Maker / Other" value={partInput.components || ''} className="border px-3 py-2 rounded bg-white outline-none focus:ring-2" onChange={e => setPartInput({...partInput, components: e.target.value})} />
               </div>
 
+              {/* === ส่วนเพิ่มชิ้นส่วนประกอบ (Components/Inserts) === */}
+              <div className="mt-4 bg-white p-3 rounded border border-blue-200">
+                 <div className="flex justify-between items-center mb-2">
+                    <label className="text-sm font-bold text-blue-900">ชิ้นส่วนประกอบ (Insert / Components)</label>
+                    <button type="button" onClick={() => setCompInput({id: null, code: '', name: '', qty: '', img: ''})} className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-bold hover:bg-blue-200 flex items-center">
+                       <Plus size={12} className="mr-1"/> เพิ่มชิ้นส่วน
+                    </button>
+                 </div>
+                 
+                 <div className="space-y-2">
+                    {(partInput.componentsList || []).map(comp => (
+                       <div key={comp.id} className="flex items-center justify-between p-2 border rounded bg-gray-50">
+                          <div className="flex items-center gap-3">
+                             {comp.img ? (
+                                <img src={comp.img} className="w-12 h-12 object-contain bg-white border rounded cursor-pointer" onClick={(e)=>{e.stopPropagation(); setZoomedImg(comp.img)}} alt="comp" />
+                             ) : (
+                                <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-[10px] text-gray-500">ไม่มีรูป</div>
+                             )}
+                             <div>
+                                <div className="font-bold text-[13px] text-blue-800">{comp.code}</div>
+                                <div className="text-[11px] text-gray-600">{comp.name}</div>
+                                <div className="text-[11px] font-bold text-orange-600 mt-0.5">จำนวน: {comp.qty}</div>
+                             </div>
+                          </div>
+                          <div className="flex gap-1 flex-col sm:flex-row">
+                             <button type="button" onClick={() => setCompInput(comp)} className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-100 rounded bg-white border shadow-sm"><Edit2 size={14}/></button>
+                             <button type="button" onClick={() => setPartInput({...partInput, componentsList: partInput.componentsList.filter(c => c.id !== comp.id)})} className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-100 rounded bg-white border shadow-sm"><Trash2 size={14}/></button>
+                          </div>
+                       </div>
+                    ))}
+                    {(partInput.componentsList || []).length === 0 && !compInput && (
+                       <p className="text-xs text-gray-400 text-center py-2">ไม่มีชิ้นส่วนประกอบ</p>
+                    )}
+                 </div>
+
+                 {compInput && (
+                    <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded">
+                       <h4 className="text-xs font-bold text-blue-800 mb-2">{compInput.id ? 'แก้ไขชิ้นส่วน' : 'เพิ่มชิ้นส่วนใหม่'}</h4>
+                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <div className="sm:col-span-2 space-y-2">
+                             <input type="text" placeholder="รหัส Part (เช่น 2221-429...)" value={compInput.code} onChange={e=>setCompInput({...compInput, code: e.target.value})} className="w-full text-xs p-2 border rounded outline-none" />
+                             <input type="text" placeholder="ชื่อ (เช่น INSERT NUT)" value={compInput.name} onChange={e=>setCompInput({...compInput, name: e.target.value})} className="w-full text-xs p-2 border rounded outline-none" />
+                             <input type="number" placeholder="จำนวน (เช่น 6)" value={compInput.qty} onChange={e=>setCompInput({...compInput, qty: e.target.value})} className="w-full text-xs p-2 border rounded outline-none" />
+                          </div>
+                          <div className="sm:col-span-1">
+                             <ImageUpload label="รูปชิ้นส่วน" height="h-full min-h-[80px]" value={compInput.img} onChange={url => setCompInput({...compInput, img: url})} onZoom={setZoomedImg} />
+                          </div>
+                       </div>
+                       <div className="flex justify-end gap-2 mt-2">
+                          <button type="button" onClick={() => setCompInput(null)} className="text-xs px-3 py-1.5 bg-white border rounded text-gray-600">ยกเลิก</button>
+                          <button type="button" onClick={handleSaveComp} className="text-xs px-3 py-1.5 bg-blue-600 text-white rounded font-bold">บันทึก</button>
+                       </div>
+                    </div>
+                 )}
+              </div>
+
             </div>
             
             <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-2 bg-white relative min-h-[160px]">
@@ -891,6 +954,13 @@ export default function App() {
                       )}
                       <p className="text-orange-700 pt-1"><strong>C/T(STD):</strong> {p.stdCycleTime}±{p.stdCycleTimeTol || 0} s</p>
                     </div>
+
+                    {/* แสดงป้าย Component เล็กๆ ในการ์ดแม่พิมพ์ */}
+                    {p.componentsList && p.componentsList.length > 0 && (
+                       <div className="mt-2 flex items-center text-[10px] text-orange-700 font-bold bg-orange-50 px-2 py-1 rounded border border-orange-200 inline-block">
+                          ⚠️ มีชิ้นส่วนประกอบ {p.componentsList.length} รายการ
+                       </div>
+                    )}
 
                   </div>
                 </div>
@@ -1091,6 +1161,29 @@ export default function App() {
             </div>
           </div>
         </div>
+
+        {/* === ป้ายเตือนชิ้นส่วนประกอบ (Alert Badge) === */}
+        {path.part.componentsList && path.part.componentsList.length > 0 && (
+           <div className="bg-orange-50 border border-orange-300 p-4 rounded-xl shadow-sm mb-6">
+              <h4 className="font-bold text-orange-800 flex items-center mb-3 text-lg"><AlertCircle size={20} className="mr-2"/> จุดที่ต้องระวัง: มีชิ้นส่วนประกอบ (Insert / Component)</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                 {path.part.componentsList.map(comp => (
+                    <div key={comp.id} className="flex items-start gap-3 bg-white p-2.5 rounded-lg border border-orange-200 shadow-sm">
+                       {comp.img ? (
+                          <img src={comp.img} className="w-16 h-16 object-contain bg-gray-50 rounded border border-gray-200 cursor-pointer hover:opacity-80" onClick={(e)=>{e.stopPropagation(); setZoomedImg(comp.img);}} alt="comp" />
+                       ) : (
+                          <div className="w-16 h-16 bg-gray-100 flex items-center justify-center rounded border border-gray-200 text-xs text-gray-400">ไม่มีรูป</div>
+                       )}
+                       <div className="flex-1">
+                          <div className="font-bold text-sm text-gray-800 leading-tight">{comp.code}</div>
+                          <div className="text-xs text-gray-600 mt-0.5">{comp.name}</div>
+                          <div className="text-sm font-bold text-orange-600 mt-1 bg-orange-100 inline-block px-2 py-0.5 rounded border border-orange-200">จำนวน: {comp.qty} ชิ้น</div>
+                       </div>
+                    </div>
+                 ))}
+              </div>
+           </div>
+        )}
 
         <div className="bg-white p-4 rounded-lg shadow space-y-4 border border-gray-200">
           <div className="flex justify-between items-center mb-2">
@@ -1492,6 +1585,21 @@ export default function App() {
                               </div>
                               <div className="col-span-2 mt-0.5"><span className="font-semibold text-gray-600">STD Cycle Time:</span> {path.part.stdCycleTime} ± {path.part.stdCycleTimeTol || 0} sec</div>
                             </div>
+
+                            {/* === โชว์ Component ในใบ PDF (ถ้ามี) === */}
+                            {path.part.componentsList && path.part.componentsList.length > 0 && (
+                               <div className="col-span-2 mt-1.5 bg-orange-50 border border-orange-200 p-1.5 rounded">
+                                  <span className="font-semibold text-orange-800 text-[10px] uppercase block mb-0.5">⚠️ Components / Inserts ({path.part.componentsList.length} items):</span>
+                                  <div className="flex flex-wrap gap-2">
+                                     {path.part.componentsList.map(comp => (
+                                        <div key={comp.id} className="text-[10px] bg-white border border-orange-200 px-1.5 py-0.5 rounded text-gray-800">
+                                           <strong>{comp.code}</strong> {comp.name} <span className="text-orange-600 font-bold">x{comp.qty}</span>
+                                        </div>
+                                     ))}
+                                  </div>
+                               </div>
+                            )}
+
                           </div>
                           
                           <div className="w-1/3 border border-gray-300 rounded p-1 flex items-center justify-center bg-white min-h-[120px]">
