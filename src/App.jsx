@@ -48,33 +48,38 @@ export const compressImage = (file, callback) => {
   };
 };
 
-// === อัปเดต CSS สำหรับการพิมพ์ที่สมบูรณ์ ===
+// === อัปเดต CSS สำหรับจัดการหน้าพิมพ์ (Print) ===
 const printStyles = `
-  @page { size: A4 portrait; margin-top: 5mm; margin-bottom: 5mm; margin-left: 8mm; margin-right: 8mm; }
+  @page { size: A4 portrait; margin: 8mm; }
   
   @media screen {
     .print-only { display: none !important; }
   }
 
   @media print {
-    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: white; margin: 0; padding: 0; }
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: white !important; margin: 0; padding: 0; }
+    
+    /* ซ่อนส่วนที่ไม่ต้องการพิมพ์ */
     .no-print { display: none !important; }
+    
+    /* แสดงเฉพาะส่วนที่ต้องการพิมพ์ */
     .print-only { display: block !important; width: 100%; }
-    main { padding: 0 !important; margin: 0 !important; max-width: 100% !important; }
     
     table.print-table { width: 100%; border-collapse: collapse; }
     thead.print-header { display: table-header-group; }
     tbody.print-body { display: table-row-group; }
     tr.print-row { page-break-inside: avoid; }
-    .avoid-break { page-break-inside: avoid; }
-    .page-break-before { page-break-before: always; }
+    
+    /* จัดการตัดหน้ากระดาษ */
+    .avoid-break { page-break-inside: avoid !important; }
+    .page-break-before { page-break-before: always !important; }
+    
+    /* ปรับขนาดฟอนต์ตอนพิมพ์ */
     .print-h1 { font-size: 14px !important; font-weight: bold !important; line-height: 1.2 !important; }
     .print-text { font-size: 11px !important; line-height: 1.4 !important; }
     .print-small { font-size: 9px !important; }
     .print-sign-name { font-size: 12px !important; }
     .print-sign-role { font-size: 10px !important; }
-    .flex { display: flex !important; }
-    .grid { display: grid !important; }
   }
 `;
 
@@ -547,6 +552,7 @@ export default function App() {
 
     return (
       <>
+        {/* === ส่วนแสดงผลหน้าจอปกติ (ซ่อนตอนพิมพ์) === */}
         <div className="no-print space-y-6">
           <div className="space-y-2">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3 mb-2">
@@ -662,7 +668,7 @@ export default function App() {
                                        <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center justify-center"><CheckCircle2 size={12} className="mr-1"/> เสร็จสิ้น</span>
                                        {(s.proofImages || []).length > 0 && (
                                           <div className="flex gap-1 justify-center">
-                                             {(s.proofImages || []).map(img => (
+                                             {s.proofImages.map(img => (
                                                 <img key={img.id} src={img.img} className="w-8 h-8 object-cover rounded shadow-sm border border-gray-300 cursor-pointer hover:scale-110 transition-transform" onClick={(e) => {e.stopPropagation(); setZoomedImg(img.img);}} alt="proof" />
                                              ))}
                                           </div>
@@ -695,27 +701,27 @@ export default function App() {
           </div>
         </div>
 
-        {/* === ฟอร์ม Report สรุปคิวงานแบบใหม่ (โชว์เฉพาะตอนพิมพ์) === */}
+        {/* === ส่วนฟอร์มที่จะถูกแสดงเฉพาะตอนดึงไปพิมพ์ลงกระดาษ (Print Layout) === */}
         <div className="print-only w-full bg-white font-sans text-black">
-          <div className="flex flex-col md:flex-row items-start justify-between border-b-[3px] border-blue-900 pb-2 mb-4 avoid-break shrink-0">
-            <div className="flex items-center">
-              <div className="mr-4">
-                 <img src="/logo.png" alt="WISDOM AUTOPARTS" className="w-32 h-auto object-contain print-exact-color" onError={(e) => {
-                    e.target.outerHTML = '<div class="print-exact-color bg-[#003399] text-white p-2 rounded flex flex-col items-center justify-center w-28 h-10"><span class="font-bold text-[14px] leading-none">WISDOM</span></div>';
-                 }} />
-              </div>
-              <div>
-                 <h1 className="print-h1 text-lg uppercase tracking-wider text-gray-800">Job Schedule & Action Report</h1>
-                 <p className="print-text text-gray-500 font-semibold">WISDOM AUTOPARTS CO.,LTD.</p>
-              </div>
+          {/* หัวกระดาษ */}
+          <div className="flex items-center justify-between border-b-[3px] border-blue-900 pb-3 mb-6 avoid-break">
+            <div className="flex items-center gap-4">
+               <img src="/logo.png" alt="WISDOM AUTOPARTS" className="w-40 h-auto object-contain" onError={(e) => {
+                  e.target.outerHTML = '<div class="bg-[#003399] text-white p-2 rounded flex flex-col items-center justify-center w-32 h-12"><span class="font-bold text-[16px] leading-none">WISDOM</span></div>';
+               }} />
+               <div>
+                 <h1 className="text-xl font-bold uppercase tracking-wider text-blue-900 mb-1">JOB SCHEDULE & ACTION REPORT</h1>
+                 <p className="text-sm font-semibold text-gray-600">WISDOM AUTOPARTS CO.,LTD.</p>
+               </div>
             </div>
-            <div className="text-right text-gray-500 mt-2 md:mt-0">
-               <p className="print-text font-bold">Month: {monthNamesThai[currentMonth]} {currentYear + 543}</p>
-               <p className="print-text">Print Date: {formatThaiDate(new Date().toISOString().split('T')[0])}</p>
+            <div className="text-right">
+               <p className="text-sm font-bold text-gray-800">Month: {monthNamesThai[currentMonth]} {currentYear + 543}</p>
+               <p className="text-xs text-gray-500 mt-1">Print Date: {formatThaiDate(new Date().toISOString().split('T')[0])}</p>
             </div>
           </div>
 
-          <div className="space-y-4">
+          {/* รายการงาน */}
+          <div className="space-y-6">
              {currentMonthSchedules.filter(s => selectedScheduleIds.includes(s.id)).map((s, index) => {
                 let extraDetails = [];
                 if (s.type === 'trial') {
@@ -730,34 +736,43 @@ export default function App() {
                 }
 
                 return (
-                  <div key={s.id} className={`avoid-break mb-4 border border-gray-300 rounded-lg ${index !== 0 && index % 3 === 0 ? 'page-break-before' : ''}`}>
-                     <div className="print-exact-color bg-gray-800 text-white p-2 flex justify-between items-center print-text rounded-t-lg">
-                       <span className="font-bold uppercase">{s.title}</span>
-                       <span>{formatThaiDate(s.date)} {s.time ? `| เวลา: ${s.time}` : ''}</span>
+                  <div key={s.id} className={`avoid-break border-2 border-gray-300 rounded-xl overflow-hidden shadow-sm ${index > 0 && index % 4 === 0 ? 'page-break-before' : ''}`}>
+                     {/* แถบหัวข้อเรื่องสีเข้ม */}
+                     <div className="bg-[#1f2937] text-white p-2.5 flex justify-between items-center print-exact-color">
+                       <h2 className="font-bold text-sm uppercase truncate pr-4">{s.title}</h2>
+                       <div className="text-xs font-bold whitespace-nowrap bg-gray-600 px-2 py-0.5 rounded print-exact-color">
+                          {formatThaiDate(s.date)} {s.time ? `| เวลา: ${s.time}` : ''}
+                       </div>
                      </div>
-                     <div className="p-3 bg-white print-text">
-                       <div className="grid grid-cols-2 gap-2 mb-2 pb-2 border-b border-gray-200">
-                          <div><strong className="text-gray-600">ประเภทงาน (Type):</strong> {getTypeLabel(s.type)}</div>
-                          <div><strong className="text-gray-600">สถานะ (Status):</strong> {s.status === 'completed' ? '✅ เสร็จสิ้น (Completed)' : '⏳ รอดำเนินการ (Pending)'}</div>
+                     
+                     {/* เนื้อหาด้านใน */}
+                     <div className="p-3 bg-white">
+                       <div className="flex gap-4 mb-2 pb-2 border-b border-gray-200">
+                          <div className="flex-1 text-[11px]">
+                             <span className="font-bold text-gray-500">ประเภทงาน (Type):</span> <span className="font-bold text-blue-800">{getTypeLabel(s.type)}</span>
+                          </div>
+                          <div className="flex-1 text-[11px]">
+                             <span className="font-bold text-gray-500">สถานะ (Status):</span> {s.status === 'completed' ? <span className="font-bold text-green-700">✅ เสร็จสิ้น (Completed)</span> : <span className="font-bold text-orange-600">⏳ รอดำเนินการ (Pending)</span>}
+                          </div>
                        </div>
                        
                        {extraDetails.length > 0 && (
-                          <div className="bg-gray-50 p-2 border border-gray-200 rounded mb-2">
-                             <strong className="text-gray-600">ข้อมูลเพิ่มเติม (Info):</strong> {extraDetails.join(' • ')}
+                          <div className="mb-2 text-[11px]">
+                             <span className="font-bold text-gray-500">ข้อมูลเพิ่มเติม (Info):</span> <span className="text-gray-800">{extraDetails.join(' • ')}</span>
                           </div>
                        )}
 
-                       <div className="mb-2">
-                          <strong className="text-gray-600">รายละเอียด / หมายเหตุ (Details):</strong> <br/>
-                          {s.detail || '-'}
+                       <div className="mb-2 text-[11px]">
+                          <span className="font-bold text-gray-500 block mb-0.5">รายละเอียด / หมายเหตุ (Details):</span> 
+                          <div className="text-gray-800 leading-tight bg-gray-50 p-2 rounded border border-gray-100">{s.detail || '-'}</div>
                        </div>
 
                        {(s.proofImages || []).length > 0 && (
-                          <div className="mt-3 pt-2 border-t border-gray-200">
-                             <strong className="text-gray-600 block mb-1">รูปถ่ายหลักฐาน (Proof of Completion):</strong>
+                          <div className="mt-2 pt-2 border-t border-gray-200">
+                             <span className="font-bold text-gray-500 block mb-2 text-[11px]">รูปถ่ายหลักฐาน (Proof of Completion):</span>
                              <div className="flex gap-2">
                                 {s.proofImages.map(img => (
-                                   <img key={img.id} src={img.img} className="w-32 h-32 object-cover border border-gray-300 rounded" alt="proof" />
+                                   <img key={img.id} src={img.img} className="w-32 h-32 object-cover border-2 border-gray-300 rounded shadow-sm" alt="proof" />
                                 ))}
                              </div>
                           </div>
@@ -766,6 +781,7 @@ export default function App() {
                   </div>
                 );
              })}
+             
              {selectedScheduleIds.length === 0 && (
                 <div className="text-center text-gray-500 py-10 font-bold border-2 border-dashed border-gray-300 rounded-lg">
                    ไม่ได้เลือกรายการนัดหมายเพื่อพิมพ์ (No items selected)
@@ -1626,7 +1642,6 @@ export default function App() {
 
     return (
       <div className="space-y-4">
-        <style dangerouslySetInnerHTML={{__html: printStyles}} />
         
         <div className="no-print bg-white p-4 rounded-lg shadow border-t-4 border-blue-500">
           <div className="flex justify-between items-center mb-3 border-b pb-2">
@@ -1655,7 +1670,7 @@ export default function App() {
           </div>
         </div>
 
-        <div id="printable-area" className="print-only bg-white mx-auto font-sans">
+        <div className="print-only bg-white mx-auto font-sans">
           {partTrialsToReport.length === 0 && <p className="text-center text-gray-400 py-10 no-print">--- กรุณาเลือก Trial ที่ต้องการพิมพ์จากแผงควบคุมด้านบน ---</p>}
 
           <div className="space-y-0">
@@ -1948,7 +1963,8 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 text-gray-800 font-sans selection:bg-blue-200 relative">
+    <div className="min-h-screen bg-gray-100 text-gray-800 font-sans selection:bg-blue-200 relative print:bg-white">
+      <style dangerouslySetInnerHTML={{__html: printStyles}} />
       <header className="bg-blue-800 text-white p-3 shadow-md sticky top-0 z-30 no-print border-b-4 border-blue-500">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center">
@@ -1984,7 +2000,8 @@ export default function App() {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto p-4 py-6 no-print">
+      {/* ปรับไม่ให้โดนจำกัดความกว้างและตัดระยะขอบตอนปริ้น */}
+      <main className="max-w-4xl mx-auto p-4 py-6 print:p-0 print:m-0 print:max-w-none">
         {activeTab === 'projects' && view === 'clients' ? ClientListView() : null}
         {activeTab === 'projects' && view === 'models' ? ModelsView() : null}
         {activeTab === 'projects' && view === 'parts' ? PartsView() : null}
