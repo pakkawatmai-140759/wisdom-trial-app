@@ -3,8 +3,12 @@ import {
   FolderKanban, Settings, Box, Activity, Camera, Plus, 
   ChevronRight, ChevronLeft, Printer, Save, AlertCircle,
   Edit2, Trash2, Check, X, Image as ImageIcon, Scale, Clock, ClipboardCheck, ZoomIn, PlayCircle, Clock3, CheckCircle2,
-  CalendarDays, Calendar as CalendarIcon, MapPin
+  CalendarDays, Calendar as CalendarIcon, MapPin, Download, Image
 } from 'lucide-react';
+
+// === EXPORT LIBRARIES ===
+import html2canvas from 'html2canvas';
+import * as XLSX from 'xlsx';
 
 // === FIREBASE IMPORTS ===
 import { initializeApp } from "firebase/app";
@@ -28,7 +32,7 @@ export const compressImage = (file, callback) => {
   const reader = new FileReader();
   reader.readAsDataURL(file);
   reader.onload = (event) => {
-    const img = new Image();
+    const img = new window.Image();
     img.src = event.target.result;
     img.onload = () => {
       const canvas = document.createElement('canvas');
@@ -244,6 +248,9 @@ export default function App() {
     trialNo: 0, 
     trialLocation: 'in_house', 
     outsourceCompany: '',
+    isSpecialRequest: false, 
+    specialRequestDetail: '',
+    specialRequestImg: null,
     date: new Date().toISOString().split('T')[0],
     images: { setupClose: null, setupOpen: null, cav: null, core: null, coreEjector: null, resin: null, machine: null, packing: null },
     equipmentImages: [], monitorImages: [], atmosphereImages: [], meetingImages: [],
@@ -266,6 +273,35 @@ export default function App() {
     if (view === 'parts') setView('models');
     if (view === 'trials') setView('parts');
     if (view === 'report' || view === 'trial_form') setView('trials');
+  };
+
+  const handleExportPNG = async (elementId, filename) => {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+    try {
+      const canvas = await html2canvas(element, { scale: 2, useCORS: true });
+      const dataUrl = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.download = `${filename}.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (error) {
+      console.error('Export PNG Error:', error);
+      alert('เกิดข้อผิดพลาดในการสร้างไฟล์รูปภาพ');
+    }
+  };
+
+  const handleExportExcel = (elementId, filename) => {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+    try {
+      const wb = XLSX.utils.table_to_book(element, { sheet: "Trial Report" });
+      XLSX.writeFile(wb, `${filename}.xlsx`);
+      alert('ส่งออก Excel สำเร็จ! \n*หมายเหตุ: ข้อมูลรูปภาพจะไม่ถูกส่งออกไปด้วยเนื่องจากข้อจำกัดของ Excel');
+    } catch (error) {
+      console.error('Export Excel Error:', error);
+      alert('เกิดข้อผิดพลาดในการสร้างไฟล์ Excel');
+    }
   };
 
   const CalendarView = () => {
@@ -371,12 +407,6 @@ export default function App() {
                       {ev.time ? `${ev.time} ` : ''}{ev.title}
                     </strong>
                     {ev.detail && <span className="block opacity-80 truncate">{ev.detail}</span>}
-                    {ev.type === 'trial' && !isCompleted && (
-                      <div className="mt-0.5 space-y-0.5">
-                        {ev.reqMachineSent && <span className="block text-[8px] text-blue-700 font-semibold">✓ ขอเครื่องแล้ว</span>}
-                        {ev.prodApproved && <span className="block text-[8px] text-green-700 font-semibold">✓ แผนอนุมัติ</span>}
-                      </div>
-                    )}
                   </div>
                 )
               })}
@@ -551,7 +581,6 @@ export default function App() {
 
     return (
       <>
-        {/* === ส่วนแสดงผลหน้าจอปกติ (ซ่อนตอนพิมพ์) === */}
         <div className="no-print space-y-6">
           <div className="space-y-2">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3 mb-2">
@@ -704,9 +733,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* === ส่วนฟอร์มที่จะถูกแสดงเฉพาะตอนดึงไปพิมพ์ลงกระดาษ (Print Layout) === */}
         <div className="print-only w-full bg-white font-sans text-black">
-          {/* หัวกระดาษ */}
           <div className="flex items-center justify-between border-b-[3px] border-blue-900 pb-3 mb-6 avoid-break">
             <div className="flex items-center gap-4">
                <img src="/logo.png" alt="WISDOM AUTOPARTS" className="w-40 h-auto object-contain" onError={(e) => {
@@ -723,7 +750,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* เงื่อนไขแสดงปฏิทินในใบ Report (ถ้าผู้ใช้ติ๊กเลือก) */}
           {includeCalendarInReport && (
              <div className="mb-8 avoid-break">
                 <h3 className="text-lg font-bold text-gray-800 mb-2 border-b-2 border-gray-200 pb-1">ภาพรวมปฏิทินประจำเดือน (Monthly Overview)</h3>
@@ -738,7 +764,6 @@ export default function App() {
              </div>
           )}
 
-          {/* รายการงาน */}
           <div className="space-y-6">
              {currentMonthSchedules.filter(s => selectedScheduleIds.includes(s.id)).map((s, index) => {
                 let extraDetails = [];
@@ -1196,6 +1221,13 @@ export default function App() {
                            🚚 {t.outsourceCompany || 'ไม่ระบุสถานที่'}
                          </span>
                       )}
+
+                      {/* ป้ายกำกับ กรณีลูกค้าร้องขอ */}
+                      {t.isSpecialRequest && (
+                         <span className="bg-yellow-100 text-yellow-800 border border-yellow-300 font-bold px-2 py-0.5 rounded-full text-[10px] mr-2 flex items-center shadow-sm">
+                           ⭐ Special Request
+                         </span>
+                      )}
                       
                       {t.status === 'completed' ? (
                         <span className="bg-green-100 text-green-700 px-2.5 py-0.5 rounded-full text-xs font-bold mr-2 flex items-center"><CheckCircle2 size={12} className="mr-1"/> เสร็จสิ้น</span>
@@ -1227,6 +1259,19 @@ export default function App() {
                         <strong>C/T ACT:</strong> {selectedCond?.actCycleTime || '-'} sec
                       </div>
                     </div>
+
+                    {/* แสดงรายละเอียดกรณีพิเศษ (ถ้ามี) */}
+                    {t.isSpecialRequest && (
+                       <div className="text-sm bg-yellow-50 p-2 rounded border border-yellow-200 mt-2 flex gap-3 shadow-sm">
+                          <div className="flex-1">
+                             <strong className="text-yellow-800">⭐ รายละเอียดการร้องขอพิเศษ:</strong><br/>
+                             <span className="text-gray-700 whitespace-pre-wrap">{t.specialRequestDetail || '-'}</span>
+                          </div>
+                          {t.specialRequestImg && (
+                             <img src={t.specialRequestImg} className="w-16 h-16 object-cover border border-yellow-300 rounded cursor-pointer shadow-sm hover:opacity-80" onClick={(e)=>{e.stopPropagation(); setZoomedImg(t.specialRequestImg);}} alt="Special Request" />
+                          )}
+                       </div>
+                    )}
                     
                     <div className="text-sm bg-red-50/50 p-2 rounded border border-red-100 mt-2">
                       <strong className="text-red-600">ปัญหาที่พบ:</strong>
@@ -1409,6 +1454,31 @@ export default function App() {
                       value={formData.outsourceCompany || ''} 
                       onChange={e => setFormData({...formData, outsourceCompany: e.target.value})} 
                    />
+                </div>
+             )}
+          </div>
+
+          {/* === ส่วนกรอกข้อมูล "กรณีลูกค้าร้องขอพิเศษ" === */}
+          <div className="bg-yellow-50 border border-yellow-300 p-3 rounded mb-4 shadow-sm">
+             <label className="flex items-center gap-2 font-bold text-yellow-900 cursor-pointer">
+                <input type="checkbox" className="w-5 h-5 text-yellow-600 rounded" checked={formData.isSpecialRequest} onChange={e => setFormData({...formData, isSpecialRequest: e.target.checked})} />
+                ⭐ กรณีลูกค้าร้องขอ / กรณีพิเศษ (Special Request)
+             </label>
+             {formData.isSpecialRequest && (
+                <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3 animate-in fade-in">
+                   <div className="md:col-span-2">
+                      <label className="block text-xs font-semibold text-yellow-800 mb-1">รายละเอียดการร้องขอ / สาเหตุ:</label>
+                      <textarea 
+                         className="w-full text-sm p-2 border border-yellow-300 rounded focus:ring-2 focus:ring-yellow-200 bg-white" 
+                         rows="3" 
+                         placeholder="เช่น ลูกค้าขอทดสอบ Material ตัวใหม่, ขอปรับแก้ไซส์ด่วน..." 
+                         value={formData.specialRequestDetail || ''} 
+                         onChange={e => setFormData({...formData, specialRequestDetail: e.target.value})}
+                      ></textarea>
+                   </div>
+                   <div className="md:col-span-1">
+                      <ImageUpload label="รูปภาพหลักฐานแนบ (ถ้ามี)" height="h-full min-h-[80px]" value={formData.specialRequestImg} onChange={url => setFormData({...formData, specialRequestImg: url})} onZoom={setZoomedImg} />
+                   </div>
                 </div>
              )}
           </div>
@@ -1739,304 +1809,230 @@ export default function App() {
                     <input type="checkbox" checked={selectedTrialIds.includes(t.id)} onChange={() => handleToggle(t.id)} className="w-4 h-4 text-blue-600 rounded" />
                     <span className={`text-sm ${selectedTrialIds.includes(t.id) ? 'text-blue-900 font-semibold' : 'text-gray-500'}`}>
                        {t.trialLocation === 'outsource' ? 'Outsource' : 'In-house'} Trial #{t.trialNo}
+                       {t.isSpecialRequest && <span className="ml-1 text-yellow-600">⭐</span>}
                     </span>
                   </label>
                ))}
              </div>
           )}
+          
           <div className="flex justify-end pt-2">
             <button onClick={() => window.print()} disabled={partTrialsToReport.length === 0} className={`px-6 py-2 rounded-lg flex items-center shadow font-bold text-white transition-colors ${partTrialsToReport.length > 0 ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-400 cursor-not-allowed'}`}>
-              <Printer className="w-5 h-5 mr-2" /> Print PPAP / PDF
+              <Printer className="w-5 h-5 mr-2" /> พิมพ์ Report (PDF)
             </button>
           </div>
         </div>
 
-        <div className="print-only bg-white mx-auto font-sans">
-          {partTrialsToReport.length === 0 && <p className="text-center text-gray-400 py-10 no-print">--- กรุณาเลือก Trial ที่ต้องการพิมพ์จากแผงควบคุมด้านบน ---</p>}
+        <div className="bg-white mx-auto font-sans w-full max-w-none pb-12">
+          {partTrialsToReport.length === 0 && <p className="text-center text-gray-400 py-10 no-print">--- กรุณาเลือก Trial ที่ต้องการดูจากแผงควบคุมด้านบน ---</p>}
 
-          <div className="space-y-0">
+          <div className="space-y-12">
             {partTrialsToReport.map((t, index) => {
-              const actionList = [];
-              if (t.reqModifyMold) actionList.push("แก้ไขแม่พิมพ์");
-              if (t.reqRetrial) actionList.push("Trial ซ้ำ");
-              if (t.reqJig) actionList.push("จัดทำ Jig/อุปกรณ์เสริม");
+              const tableId = `report-table-${t.id}`;
+              const containerId = `report-container-${t.id}`;
+              const exportName = `MEETING_PROBLEM_${path.part.code.split('\n')[0]}_TRIAL-${t.trialNo}`;
 
               return (
-                <table key={t.id} className={`print-table ${index !== 0 ? 'page-break-before' : ''}`}>
-                  <thead className="print-header">
-                    <tr>
-                      <td className="pb-3 border-b-0" style={{ paddingTop: '5mm' }}>
-                        
-                        <div className="flex flex-col md:flex-row items-start justify-between border-b-[3px] border-blue-900 pb-2 mb-2 avoid-break shrink-0">
-                          <div className="flex items-center">
-                            <div className="mr-4">
-                               <img src="/logo.png" alt="WISDOM AUTOPARTS" className="w-32 md:w-40 h-auto object-contain print-exact-color" onError={(e) => {
-                                  e.target.outerHTML = '<div class="print-exact-color bg-[#003399] text-white p-2 rounded flex flex-col items-center justify-center w-28 md:w-32 h-10 md:h-12"><span class="font-bold text-[14px] md:text-[16px] leading-none">WISDOM</span><span class="text-[7px] md:text-[8px] tracking-[0.2em] mt-1">AUTOPARTS</span></div>';
+                <div key={t.id} className={`avoid-break ${index !== 0 ? 'page-break-before mt-8' : ''}`}>
+                  
+                  {/* แถบปุ่มสำหรับ Export แต่ละฟอร์ม (ซ่อนตอน Print) */}
+                  <div className="flex justify-end gap-2 mb-2 no-print">
+                     <button onClick={() => handleExportPNG(containerId, exportName)} className="flex items-center gap-1 bg-indigo-600 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-indigo-700 shadow-sm">
+                        <Image size={14}/> ดาวน์โหลด PNG
+                     </button>
+                     <button onClick={() => handleExportExcel(tableId, exportName)} className="flex items-center gap-1 bg-green-600 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-green-700 shadow-sm">
+                        <Download size={14}/> ดาวน์โหลด Excel
+                     </button>
+                  </div>
+
+                  {/* พื้นที่ที่จะถูกปริ้น / Export */}
+                  <div id={containerId} className="bg-white p-2 border border-gray-300 md:border-none print:border-none">
+                     <table id={tableId} className="w-full border-collapse text-[11px] [&_td]:border [&_td]:border-black [&_td]:p-1.5 bg-white print-table">
+                        <tbody>
+                          {/* Row 1 */}
+                          <tr>
+                            <td colSpan="2" rowSpan="2" className="w-[30%] text-center border-none p-2">
+                               <img src="/logo.png" alt="WISDOM AUTOPARTS" className="max-w-[140px] max-h-[40px] mx-auto object-contain print-exact-color" onError={(e) => {
+                                  e.target.outerHTML = '<div class="print-exact-color bg-[#003399] text-white p-2 rounded flex flex-col items-center justify-center w-full h-8"><span class="font-bold text-[16px] leading-none">WISDOM</span></div>';
                                }} />
-                            </div>
-                            <div>
-                               <h1 className="print-h1 text-lg md:text-2xl uppercase tracking-wider text-gray-800">Injection Trial & Inspection Report</h1>
-                               <p className="print-text text-gray-500 font-semibold">WISDOM AUTOPARTS CO.,LTD.</p>
-                            </div>
-                          </div>
-                          <div className="text-right text-gray-500 mt-2 md:mt-0">
-                             <p className="print-text font-bold">Doc No: WI-PE3-02</p>
-                             <p className="print-text">Print Date: {formatThaiDate(new Date().toISOString().split('T')[0])}</p>
-                          </div>
-                        </div>
-
-                        <div className="flex gap-2 avoid-break print-text">
-                          <div className="w-2/3 border border-gray-300 rounded p-2 bg-white flex flex-col justify-between">
-                            <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 mb-2">
-                              <div className="col-span-1"><span className="font-semibold text-gray-600">Customer:</span> {path.client.name}</div>
-                              <div className="col-span-1"><span className="font-semibold text-gray-600">Model:</span> {path.model.name}</div>
-                              
-                              <div className="col-span-1 text-[13px] text-blue-900 font-bold border-b border-gray-200 pb-1 whitespace-pre-wrap pr-2">{path.part.code}</div>
-                              <div className="col-span-1 text-[13px] text-gray-700 font-bold border-b border-gray-200 pb-1 whitespace-pre-wrap pl-2 border-l border-gray-100">{path.part.name}</div>
-                              
-                              <div className="col-span-1"><span className="font-semibold text-gray-600">Material:</span> {path.part.material}</div>
-                              <div className="col-span-1"><span className="font-semibold text-gray-600">Cavity:</span> {path.part.cavity}</div>
-                            </div>
-                            
-                            <div className="grid grid-cols-2 gap-2 mt-auto">
-                              <div className="col-span-2 grid grid-cols-2 gap-2 bg-gray-50 p-1.5 rounded border border-gray-200">
-                                {(path.part.cavities || []).map(cav => (
-                                   <div key={cav.id}><span className="font-semibold text-gray-600">STD Weight {cav.name}:</span> {cav.std} +{cav.plus||0}/-{cav.minus||0} g</div>
-                                ))}
-                              </div>
-                              <div className="col-span-2 mt-0.5"><span className="font-semibold text-gray-600">STD Cycle Time:</span> {path.part.stdCycleTime} ± {path.part.stdCycleTimeTol || 0} sec</div>
-                            </div>
-
-                            {path.part.componentsList && path.part.componentsList.length > 0 && (
-                               <div className="col-span-2 mt-1.5 bg-orange-50 border border-orange-200 p-1.5 rounded">
-                                  <span className="font-semibold text-orange-800 text-[10px] uppercase block mb-0.5">⚠️ Components / Inserts ({path.part.componentsList.length} items):</span>
-                                  <div className="flex flex-wrap gap-2">
-                                     {path.part.componentsList.map(comp => (
-                                        <div key={comp.id} className="text-[10px] bg-white border border-orange-200 px-1.5 py-0.5 rounded text-gray-800">
-                                           <strong>{comp.code}</strong> {comp.name} <span className="text-orange-600 font-bold">x{comp.qty}</span>
-                                        </div>
-                                     ))}
+                            </td>
+                            <td colSpan="4" rowSpan="2" className="w-[70%] text-center font-bold text-[18px] bg-gray-200 tracking-wider print-exact-color relative">
+                               MEETING PROBLEM PART
+                               {/* ป้ายกำกับ กรณีพิเศษ สำหรับ Report */}
+                               {t.isSpecialRequest && (
+                                  <div className="absolute top-1 right-2 text-[10px] bg-yellow-200 text-yellow-900 border border-yellow-400 px-1.5 py-0.5 rounded print-exact-color">
+                                     ⭐ SPECIAL REQUEST
                                   </div>
-                               </div>
-                            )}
+                               )}
+                            </td>
+                          </tr>
+                          <tr></tr>
 
-                          </div>
-                          
-                          <div className="w-1/3 border border-gray-300 rounded p-1 flex items-center justify-center bg-white min-h-[120px]">
-                            {path.part.img ? <img src={path.part.img} className="max-h-32 object-contain" alt="Part" /> : <span className="text-gray-300 text-lg font-bold opacity-50">No Image</span>}
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  </thead>
-
-                  <tbody className="print-body">
-                    <tr className="print-row">
-                      <td className="pt-1">
-                        <div className="print-exact-color bg-gray-800 text-white p-2 flex justify-between items-center print-text rounded-t-lg mb-2">
-                          <span className="font-bold uppercase">
-                             {t.trialLocation === 'outsource' ? `OUTSOURCE TRIAL #${t.trialNo} [${t.outsourceCompany || 'ไม่ระบุ'}]` : `IN-HOUSE TRIAL #${t.trialNo}`}
-                          </span>
-                          <span>Date: {formatThaiDate(t.date)} | PE: {t.signatures && t.signatures.length > 0 ? t.signatures[0].name : '-'}</span>
-                        </div>
-                      </td>
-                    </tr>
-
-                    <tr className="print-row">
-                      <td className="pb-2">
-                        <div className="border border-gray-300 rounded p-2 bg-gray-50 print-text">
-                           <h4 className="font-bold text-gray-700 border-b border-gray-300 pb-0.5 mb-1 uppercase">Conditions Summary</h4>
-                           <div className="space-y-1">
-                             {t.conditions?.map(cond => (
-                               <div key={cond.id} className="flex flex-wrap items-center justify-between text-[10px] border-b border-gray-200 pb-1 last:border-0 last:pb-0">
-                                  <div className="flex items-center gap-2 w-full">
-                                     <span className="font-bold w-16">{cond.name}</span>
-                                     <div className="flex-1 min-w-[120px]">
-                                        {(path.part.cavities || []).map((cav, idx) => {
-                                           const actVal = cond.actWeights?.[cav.id] || '';
-                                           const isNg = checkNgByTolerance(actVal, cav.std, cav.plus, cav.minus);
-                                           return (
-                                              <span key={cav.id} className={`block ${idx>0?'mt-0.5':''} ${isNg ? "text-red-600 font-bold" : "text-green-700 font-semibold"}`}>
-                                                {cav.name} ACT: {actVal || '-'} g
-                                              </span>
-                                           )
-                                        })}
-                                     </div>
-                                     <div className="flex-1 min-w-[80px]">C/T: <span className={checkNgByTolerance(cond.actCycleTime, path.part.stdCycleTime, path.part.stdCycleTimeTol, path.part.stdCycleTimeTol) ? "text-red-600 font-bold" : "text-green-700 font-bold"}>{cond.actCycleTime || '-'} s</span></div>
-                                     <span className="text-gray-500 italic hidden md:inline w-1/4 truncate">{cond.note}</span>
-                                     <div className="text-right">
-                                         {cond.customerResult === 'ok' && <span className="print-exact-color bg-green-100 text-green-700 border border-green-300 px-1 py-0.5 rounded font-bold">OK</span>}
-                                         {cond.customerResult === 'temporary' && <span className="print-exact-color bg-orange-100 text-orange-700 border border-orange-300 px-1 py-0.5 rounded font-bold">ACCEPT (Temp)</span>}
-                                         {cond.customerResult === 'ng' && <span className="print-exact-color bg-red-100 text-red-700 border border-red-300 px-1 py-0.5 rounded font-bold">NG</span>}
-                                         {cond.customerResult === 'pending' && <span className="print-exact-color bg-gray-200 text-gray-500 px-1 py-0.5 rounded">Pending</span>}
-                                     </div>
-                                  </div>
-                               </div>
-                             ))}
-                           </div>
-                        </div>
-                      </td>
-                    </tr>
-
-                    <tr className="print-row">
-                      <td className="pb-2">
-                        <div className="grid grid-cols-2 gap-2 text-center print-text">
-                           <div className="border border-gray-300 p-1 rounded bg-gray-50">
-                              <div className="text-gray-500">Good / NG Parts</div>
-                              <div className="font-bold text-gray-800 text-[12px]">{t.goodParts || '0'} / {t.ngParts || '0'}</div>
-                           </div>
-                           <div className="border border-gray-300 p-1 rounded bg-gray-50 flex flex-col items-center justify-center">
-                              <div className="text-gray-500 mb-0.5">Limit Sample</div>
-                              {t.limitSampleOk ? <span className="print-exact-color bg-green-100 text-green-800 px-2 py-0.5 rounded font-bold text-[10px]">APPROVED</span> : <span className="print-exact-color bg-gray-200 text-gray-500 px-2 py-0.5 rounded text-[10px]">PENDING</span>}
-                           </div>
-                        </div>
-                      </td>
-                    </tr>
-
-                    {t.partProblems.length > 0 && (
-                      <tr className="print-row">
-                        <td className="pb-2">
-                          <div className="border border-blue-200 rounded p-2 bg-blue-50/20 print-text">
-                             <h4 className="font-bold text-blue-800 border-b border-blue-200 pb-0.5 mb-1 uppercase">PART DEFECTS</h4>
-                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                               {t.partProblems.map(p => (
-                                  <div key={p.id} className="flex gap-2 items-start border-b border-blue-100 pb-1 md:border-b-0 md:pb-0">
-                                     {p.img && <img src={p.img} className="w-16 h-16 object-cover border border-gray-300 rounded" alt="NG" />}
-                                     <div className="flex-1">
-                                        <div className="flex justify-between items-center mb-0.5">
-                                          <span className="font-bold text-red-700">{p.defect}</span>
-                                          {p.status && (
-                                            <span className={`text-[8px] px-1 py-0.5 border font-bold rounded uppercase print-exact-color
-                                                ${p.status === 'OK' ? 'border-green-500 text-green-700 bg-green-50' : 
-                                                  p.status === 'NG' ? 'border-red-500 text-red-700 bg-red-50' : 
-                                                  'border-orange-500 text-orange-700 bg-orange-50'}`}>
-                                               {p.status}
-                                            </span>
-                                          )}
-                                        </div>
-                                        <div className="text-gray-700 leading-tight"><span className="font-semibold text-gray-500">Detail:</span> {p.note || '-'}</div>
-                                        <div className="text-gray-700 leading-tight"><span className="font-semibold text-gray-500">Cause:</span> {p.cause || '-'}</div>
-                                        <div className="text-gray-700 leading-tight"><span className="font-semibold text-gray-500">Fix:</span> {p.fix || '-'}</div>
-                                     </div>
-                                  </div>
-                               ))}
-                             </div>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                    
-                    {t.moldProblems.length > 0 && (
-                      <tr className="print-row">
-                        <td className="pb-2">
-                          <div className="border border-orange-200 rounded p-2 bg-orange-50/20 print-text">
-                             <h4 className="font-bold text-orange-800 border-b border-orange-200 pb-0.5 mb-1 uppercase">MOLD DEFECTS</h4>
-                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                               {t.moldProblems.map(p => (
-                                  <div key={p.id} className="flex gap-2 items-start border-b border-orange-100 pb-1 md:border-b-0 md:pb-0">
-                                     {p.img && <img src={p.img} className="w-16 h-16 object-cover border border-gray-300 rounded" alt="Mold NG" />}
-                                     <div className="flex-1">
-                                        <div className="flex justify-end items-center mb-0.5">
-                                          {p.status && (
-                                            <span className={`text-[8px] px-1 py-0.5 border font-bold rounded uppercase print-exact-color
-                                                ${p.status === 'OK' ? 'border-green-500 text-green-700 bg-green-50' : 
-                                                  p.status === 'NG' ? 'border-red-500 text-red-700 bg-red-50' : 
-                                                  'border-orange-500 text-orange-700 bg-orange-50'}`}>
-                                               {p.status}
-                                            </span>
-                                          )}
-                                        </div>
-                                        <div className="text-gray-700 leading-tight"><span className="font-semibold text-gray-500">Detail:</span> {p.note || '-'}</div>
-                                        <div className="text-gray-700 leading-tight"><span className="font-semibold text-gray-500">Cause:</span> {p.cause || '-'}</div>
-                                        <div className="text-gray-700 leading-tight"><span className="font-semibold text-gray-500">Fix:</span> {p.fix || '-'}</div>
-                                     </div>
-                                  </div>
-                               ))}
-                             </div>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-
-                    <tr className="print-row">
-                      <td className="pb-2">
-                        <div className="border border-blue-200 rounded p-2 bg-blue-50/10 print-text">
-                            <h4 className="font-bold text-blue-800 border-b border-blue-200 pb-0.5 mb-1 uppercase">ATTACHMENTS</h4>
-                            <div className="flex flex-wrap gap-2">
-                                {t.images.setupClose && <div className="text-center w-[18%] md:w-16"><img src={t.images.setupClose} className="h-12 md:h-16 w-full object-cover border border-gray-300 rounded" alt="Close"/><div className="print-small mt-0.5 text-gray-600">แม่พิมพ์ปิด</div></div>}
-                                {t.images.setupOpen && <div className="text-center w-[18%] md:w-16"><img src={t.images.setupOpen} className="h-12 md:h-16 w-full object-cover border border-gray-300 rounded" alt="Open"/><div className="print-small mt-0.5 text-gray-600">แม่พิมพ์เปิด</div></div>}
-                                {t.images.cav && <div className="text-center w-[18%] md:w-16"><img src={t.images.cav} className="h-12 md:h-16 w-full object-cover border border-gray-300 rounded" alt="Cav"/><div className="print-small mt-0.5 text-gray-600">ฝั่ง Cavity</div></div>}
-                                {t.images.core && <div className="text-center w-[18%] md:w-16"><img src={t.images.core} className="h-12 md:h-16 w-full object-cover border border-gray-300 rounded" alt="Core"/><div className="print-small mt-0.5 text-gray-600">ฝั่ง Core</div></div>}
-                                {t.images.coreEjector && <div className="text-center w-[18%] md:w-16"><img src={t.images.coreEjector} className="h-12 md:h-16 w-full object-cover border border-gray-300 rounded" alt="Core EJ"/><div className="print-small mt-0.5 text-gray-600">เช็คปลดงาน</div></div>}
-                                {t.images.resin && <div className="text-center w-[18%] md:w-16"><img src={t.images.resin} className="h-12 md:h-16 w-full object-cover border border-gray-300 rounded" alt="Resin"/><div className="print-small mt-0.5 text-gray-600">กระสอบเม็ด</div></div>}
-                                {t.images.machine && <div className="text-center w-[18%] md:w-16"><img src={t.images.machine} className="h-12 md:h-16 w-full object-cover border border-gray-300 rounded" alt="Mc"/><div className="print-small mt-0.5 text-gray-600">เครื่องจักร</div></div>}
-                                {t.images.packing && <div className="text-center w-[18%] md:w-16"><img src={t.images.packing} className="h-12 md:h-16 w-full object-cover border border-gray-300 rounded" alt="Packing"/><div className="print-small mt-0.5 text-gray-600">Box/Packing</div></div>}
-                                
-                                {t.equipmentImages.map(eq => eq.img && (
-                                    <div key={eq.id} className="text-center w-[18%] md:w-16">
-                                       <img src={eq.img} className="h-12 md:h-16 w-full object-cover border border-gray-300 rounded" alt="Eq"/>
-                                       <div className="print-small mt-0.5 text-gray-600 truncate">{eq.note || 'อุปกรณ์เสริม'}</div>
-                                    </div>
-                                ))}
-                                
-                                {t.monitorImages.map(m => m.img && (
-                                    <div key={m.id} className="text-center w-[18%] md:w-16">
-                                       <img src={m.img} className="h-12 md:h-16 w-full object-cover border border-gray-300 rounded" alt="Monitor"/>
-                                       <div className="print-small mt-0.5 text-gray-600 truncate">{m.note || 'หน้าจอ'}</div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                      </td>
-                    </tr>
-
-                    {t.meetingImages && t.meetingImages.length > 0 && (
-                      <tr className="print-row">
-                        <td className="pb-2">
-                          <div className="border border-green-200 rounded p-2 bg-green-50/20 print-text">
-                              <h4 className="font-bold text-green-800 border-b border-green-200 pb-0.5 mb-1 uppercase">MEETING & DISCUSSION</h4>
-                              <div className="flex flex-wrap gap-2">
-                                  {t.meetingImages.map(m => m.img && (
-                                      <div key={m.id} className="text-center w-24">
-                                          <img src={m.img} className="h-16 w-full object-cover border border-gray-300 rounded" alt="Meeting"/>
+                          {/* แสดงรายละเอียดกรณีพิเศษ หากมีการติ๊กเลือก */}
+                          {t.isSpecialRequest && (
+                             <tr>
+                                <td colSpan="6" className="bg-yellow-50 text-yellow-900 p-2 print-exact-color">
+                                   <div className="flex flex-col sm:flex-row gap-2 items-start justify-between">
+                                      <div className="flex-1">
+                                         <span className="font-bold text-[12px] underline">รายละเอียดการร้องขอพิเศษ:</span><br/>
+                                         <span className="whitespace-pre-wrap">{t.specialRequestDetail || '-'}</span>
                                       </div>
-                                  ))}
-                              </div>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
+                                      {t.specialRequestImg && (
+                                         <div className="w-24 shrink-0 text-center">
+                                            <img src={t.specialRequestImg} className="h-16 w-full object-contain border border-yellow-300 rounded bg-white" alt="Special Request"/>
+                                            <div className="text-[8px] mt-0.5 text-yellow-800">รูปแนบกรณีพิเศษ</div>
+                                         </div>
+                                      )}
+                                   </div>
+                                </td>
+                             </tr>
+                          )}
 
-                    <tr className="print-row">
-                      <td className="pt-2">
-                        <div className="border border-gray-300 rounded p-3 bg-white print-text">
-                            <p className="mb-1">
-                              <strong className="text-gray-700">Next Step / Action Plan:</strong>
-                              {actionList.length > 0 ? (
-                                <span className="ml-2 font-bold text-blue-700 bg-blue-50 px-1 py-0.5 rounded print-exact-color border border-blue-200">{actionList.join(', ')}</span>
-                              ) : <span className="ml-2">-</span>}
-                            </p>
-                            <p><strong className="text-gray-700">รายละเอียดเพิ่มเติม:</strong> {t.makerAction || '-'}</p>
-                            <p><strong className="text-gray-700">Next Delivery/Trial:</strong> {formatThaiDate(t.deliveryDate)} / {formatThaiDate(t.nextTrialDate)}</p>
-                            <p><strong className="text-gray-700">Remarks (อื่นๆ):</strong> {t.remarks || '-'}</p>
-                            
-                            <div className="flex flex-wrap justify-around items-end gap-4 mt-8 text-center">
-                              {(t.signatures || [
-                                { id: 1, role: 'PE', name: t.peName || '' },
-                                { id: 2, role: 'Tooling Maker', name: '' },
-                                { id: 3, role: 'ลูกค้า (Customer)', name: '' }
-                              ]).map(sig => (
-                                <div key={sig.id} className="w-24 md:w-32">
-                                  <div className="border-b border-gray-400 w-full mx-auto mb-1 h-6 flex items-end justify-center font-[cursive] text-blue-800 print-sign-name leading-tight pb-0.5 truncate">{sig.name}</div>
-                                  <p className="text-[10px] md:text-[11px] text-gray-500 print-sign-role truncate font-semibold uppercase">{sig.role}</p>
+                          {/* Row 2 */}
+                          <tr>
+                            <td className="font-bold bg-gray-100 print-exact-color w-[15%]">Customer :</td>
+                            <td className="w-[20%]">{path.client.name}</td>
+                            <td className="font-bold bg-gray-100 print-exact-color w-[15%]">DATE :</td>
+                            <td className="w-[20%]">{formatThaiDate(t.date)}</td>
+                            <td colSpan="2" className="font-bold text-center bg-gray-200 print-exact-color w-[30%]">MEETING MEMBER</td>
+                          </tr>
+
+                          {/* Row 3 */}
+                          <tr>
+                            <td className="font-bold bg-gray-100 print-exact-color">Model :</td>
+                            <td>{path.model.name}</td>
+                            <td className="font-bold bg-gray-100 print-exact-color">TRY :</td>
+                            <td>#{t.trialNo} {t.trialLocation === 'outsource' ? `[${t.outsourceCompany}]` : ''}</td>
+                            <td colSpan="2" className="text-center font-bold">WDA / Customer</td>
+                          </tr>
+
+                          {/* Row 4 */}
+                          <tr>
+                            <td className="font-bold bg-gray-100 print-exact-color">Mold Name :</td>
+                            <td>{path.part.components || '-'}</td>
+                            <td className="font-bold bg-gray-100 print-exact-color">Level Part :</td>
+                            <td className="font-bold">{t.limitSampleOk ? 'APPROVED' : 'PENDING'}</td>
+                            <td colSpan="2" className="text-center"></td>
+                          </tr>
+
+                          {/* Row 5 */}
+                          <tr>
+                            <td className="font-bold bg-gray-100 print-exact-color">Mold Maker :</td>
+                            <td>{t.signatures && t.signatures[1] ? t.signatures[1].name : '-'}</td>
+                            <td className="font-bold bg-gray-100 print-exact-color">Cavity QTY :</td>
+                            <td>{path.part.cavity}</td>
+                            <td colSpan="2" className="text-center"></td>
+                          </tr>
+
+                          {/* Row 6 */}
+                          <tr>
+                            <td className="font-bold align-top bg-gray-100 print-exact-color">Part No. :</td>
+                            <td className="whitespace-pre-wrap font-bold text-blue-900">{path.part.code}</td>
+                            <td colSpan="2" className="font-bold text-center bg-gray-200 print-exact-color">Conditions Summary</td>
+                            <td className="font-bold text-center bg-gray-100 print-exact-color w-[15%]">Issued by</td>
+                            <td className="font-bold text-center bg-gray-100 print-exact-color w-[15%]">Checked</td>
+                          </tr>
+
+                          {/* Row 7 */}
+                          <tr>
+                            <td className="font-bold align-top bg-gray-100 print-exact-color">Part Name. :</td>
+                            <td className="whitespace-pre-wrap font-bold text-blue-900">{path.part.name}</td>
+                            <td colSpan="2" rowSpan="2" className="align-top leading-relaxed text-[10px]">
+                               {/* Conditions display */}
+                               {t.conditions?.map((c, i) => (
+                                 <div key={i} className="mb-1 border-b border-gray-300 border-dashed pb-1 last:border-0">
+                                   <strong>{c.name}:</strong> C/T {c.actCycleTime||'-'}s |
+                                   {(path.part.cavities || []).map(cav => {
+                                      const act = c.actWeights?.[cav.id];
+                                      return ` ${cav.name}: ${act||'-'}g`;
+                                   }).join(' |')}
+                                   <br/><span className="text-gray-500 italic">{c.note || '-'}</span>
+                                 </div>
+                               ))}
+                            </td>
+                            <td className="text-center align-middle font-[cursive] text-blue-800 text-[14px]">{t.signatures && t.signatures[0] ? t.signatures[0].name : ''}</td>
+                            <td className="text-center align-middle font-[cursive] text-blue-800 text-[14px]">{t.signatures && t.signatures[2] ? t.signatures[2].name : ''}</td>
+                          </tr>
+
+                          {/* Row 8 */}
+                          <tr>
+                            <td className="font-bold bg-gray-100 print-exact-color">Material :</td>
+                            <td>{path.part.material}</td>
+                            <td className="text-center font-bold">Good: {t.goodParts || '0'}</td>
+                            <td className="text-center font-bold">NG: {t.ngParts || '0'}</td>
+                          </tr>
+
+                          {/* PROBLEM & DEFECT HEADER */}
+                          <tr>
+                            <td colSpan="6" className="font-bold text-center bg-red-100 text-red-900 py-2 print-exact-color uppercase">
+                               PROBLEM & DEFECT DETAILS
+                            </td>
+                          </tr>
+
+                          {/* Part Problems loop */}
+                          {t.partProblems.map(p => (
+                             <tr key={p.id}>
+                                <td colSpan="3" className="align-top border-r-0">
+                                   <span className="font-bold text-red-700 bg-red-50 px-1 print-exact-color">PART DEFECT:</span> <span className="font-bold">{p.defect}</span> <span className="text-[9px] px-1 border border-black">{p.status || '-'}</span><br/>
+                                   <strong className="text-gray-600">Detail:</strong> {p.note || '-'}<br/>
+                                   <strong className="text-gray-600">Cause:</strong> {p.cause || '-'}<br/>
+                                   <strong className="text-gray-600">Countermeasure:</strong> {p.fix || '-'}
+                                </td>
+                                <td colSpan="3" className="text-center align-middle border-l-0">
+                                   {p.img && <img src={p.img} className="max-h-24 max-w-full mx-auto object-contain" alt="Defect" />}
+                                </td>
+                             </tr>
+                          ))}
+
+                          {/* Mold Problems loop */}
+                          {t.moldProblems.map(p => (
+                             <tr key={p.id}>
+                                <td colSpan="3" className="align-top border-r-0">
+                                   <span className="font-bold text-orange-700 bg-orange-50 px-1 print-exact-color">MOLD DEFECT:</span> <span className="text-[9px] px-1 border border-black">{p.status || '-'}</span><br/>
+                                   <strong className="text-gray-600">Detail:</strong> {p.note || '-'}<br/>
+                                   <strong className="text-gray-600">Cause:</strong> {p.cause || '-'}<br/>
+                                   <strong className="text-gray-600">Countermeasure:</strong> {p.fix || '-'}
+                                </td>
+                                <td colSpan="3" className="text-center align-middle border-l-0">
+                                   {p.img && <img src={p.img} className="max-h-24 max-w-full mx-auto object-contain" alt="Mold Defect" />}
+                                </td>
+                             </tr>
+                          ))}
+
+                          {/* IF NO PROBLEMS */}
+                          {t.partProblems.length === 0 && t.moldProblems.length === 0 && (
+                             <tr>
+                                <td colSpan="6" className="text-center py-4 text-gray-500">- ไม่มีปัญหาในการทดลองฉีด (No Defects) -</td>
+                             </tr>
+                          )}
+
+                          {/* ATTACHMENTS HEADER */}
+                          <tr>
+                            <td colSpan="6" className="font-bold text-center bg-gray-200 py-2 print-exact-color uppercase">
+                               ATTACHMENTS (ภาพถ่ายหน้างาน)
+                            </td>
+                          </tr>
+
+                          {/* ATTACHMENTS IMAGES */}
+                          <tr>
+                             <td colSpan="6" className="p-2 border-black">
+                                <div className="flex flex-wrap justify-center gap-2">
+                                  {t.images.setupClose && <div className="text-center w-[23%]"><img src={t.images.setupClose} className="h-20 w-full object-cover border border-gray-400"/><div className="text-[8px] mt-0.5">แม่พิมพ์ปิด</div></div>}
+                                  {t.images.setupOpen && <div className="text-center w-[23%]"><img src={t.images.setupOpen} className="h-20 w-full object-cover border border-gray-400"/><div className="text-[8px] mt-0.5">แม่พิมพ์เปิด</div></div>}
+                                  {t.images.cav && <div className="text-center w-[23%]"><img src={t.images.cav} className="h-20 w-full object-cover border border-gray-400"/><div className="text-[8px] mt-0.5">ฝั่ง Cavity</div></div>}
+                                  {t.images.core && <div className="text-center w-[23%]"><img src={t.images.core} className="h-20 w-full object-cover border border-gray-400"/><div className="text-[8px] mt-0.5">ฝั่ง Core</div></div>}
+                                  {t.images.coreEjector && <div className="text-center w-[23%]"><img src={t.images.coreEjector} className="h-20 w-full object-cover border border-gray-400"/><div className="text-[8px] mt-0.5">เช็คปลดงาน</div></div>}
+                                  {t.images.resin && <div className="text-center w-[23%]"><img src={t.images.resin} className="h-20 w-full object-cover border border-gray-400"/><div className="text-[8px] mt-0.5">กระสอบเม็ด</div></div>}
+                                  {t.images.machine && <div className="text-center w-[23%]"><img src={t.images.machine} className="h-20 w-full object-cover border border-gray-400"/><div className="text-[8px] mt-0.5">เครื่องจักร</div></div>}
+                                  {t.images.packing && <div className="text-center w-[23%]"><img src={t.images.packing} className="h-20 w-full object-cover border border-gray-400"/><div className="text-[8px] mt-0.5">Box / Packing</div></div>}
                                 </div>
-                              ))}
-                            </div>
-                        </div>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+                             </td>
+                          </tr>
+
+                        </tbody>
+                     </table>
+                  </div>
+                </div>
               );
             })}
           </div>
@@ -2046,8 +2042,9 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 text-gray-800 font-sans selection:bg-blue-200 relative print:bg-white">
+    <div className="min-h-screen bg-gray-100 text-gray-800 font-sans selection:bg-blue-200 relative print:bg-white print:m-0 print:p-0">
       <style dangerouslySetInnerHTML={{__html: printStyles}} />
+      
       <header className="bg-blue-800 text-white p-3 shadow-md sticky top-0 z-30 no-print border-b-4 border-blue-500">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center">
@@ -2083,8 +2080,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* ปรับไม่ให้โดนจำกัดความกว้างและตัดระยะขอบตอนปริ้น */}
-      <main className="max-w-4xl mx-auto p-4 py-6 print:p-0 print:m-0 print:max-w-none print:w-full">
+      <main className="max-w-4xl mx-auto p-4 py-6 print:p-0 print:m-0 print:max-w-none print:w-full no-print">
         {activeTab === 'projects' && view === 'clients' ? ClientListView() : null}
         {activeTab === 'projects' && view === 'models' ? ModelsView() : null}
         {activeTab === 'projects' && view === 'parts' ? PartsView() : null}
@@ -2093,6 +2089,11 @@ export default function App() {
         {activeTab === 'projects' && view === 'report' ? ReportView() : null}
         {activeTab === 'calendar' ? CalendarView() : null}
       </main>
+
+      {/* พื้นที่สำหรับ Print อย่างเดียว เพื่อป้องกันปัญหา DOM ซ้อนทับ */}
+      <div className="print-only">
+         {activeTab === 'projects' && view === 'report' ? ReportView() : null}
+      </div>
 
       {zoomedImg && (
         <div 
