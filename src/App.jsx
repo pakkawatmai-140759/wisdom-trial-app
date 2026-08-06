@@ -48,7 +48,6 @@ export const compressImage = (file, callback) => {
   };
 };
 
-// === อัปเดต CSS สำหรับจัดการหน้าพิมพ์ (Print) ===
 const printStyles = `
   @page { size: A4 portrait; margin: 8mm; }
   
@@ -208,8 +207,6 @@ export default function App() {
   const [formData, setFormData] = useState(null);
   
   const [selectedTrialIds, setSelectedTrialIds] = useState([]);
-  
-  // === State สำหรับจัดการหน้า Report ในปฏิทิน ===
   const [selectedScheduleIds, setSelectedScheduleIds] = useState([]);
   const [includeCalendarInReport, setIncludeCalendarInReport] = useState(true);
 
@@ -330,7 +327,6 @@ export default function App() {
       })
       .sort((a,b) => new Date(a.date) - new Date(b.date));
 
-    // แยกฟังก์ชันตารางปฏิทินออกมาเพื่อให้ใช้ซ้ำในหน้า Report ได้
     const renderCalendarGrid = () => {
       const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
       const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay(); 
@@ -758,7 +754,7 @@ export default function App() {
                 }
 
                 return (
-                  <div key={s.id} className={`avoid-break border-2 border-gray-300 rounded-xl overflow-hidden shadow-sm ${index > 0 && index % 4 === 0 ? 'page-break-before' : ''}`}>
+                  <div key={s.id} className="avoid-break border-2 border-gray-300 rounded-xl overflow-hidden shadow-sm mb-4">
                      <div className="bg-[#1f2937] text-white p-2.5 flex justify-between items-center print-exact-color">
                        <h2 className="font-bold text-sm uppercase truncate pr-4">รายการที่ {index + 1} : {getTypeLabel(s.type)}</h2>
                        <div className="text-xs font-bold whitespace-nowrap bg-gray-600 px-2 py-0.5 rounded print-exact-color">
