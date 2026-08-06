@@ -1125,7 +1125,6 @@ export default function App() {
     const partTrials = trials.filter(t => t.partId === path.part.id);
     const headerTitleCode = path.part.code.split('\n')[0];
 
-    // คำนวณหาค่า Trial ถัดไปแบบออโต้แยกตามสถานที่ (เริ่มที่ 0)
     const inHouseTrials = partTrials.filter(t => t.trialLocation !== 'outsource');
     const outsourceTrials = partTrials.filter(t => t.trialLocation === 'outsource');
     
@@ -2057,7 +2056,8 @@ export default function App() {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto p-4 py-6 no-print">
+      {/* ปรับไม่ให้โดนจำกัดความกว้างและตัดระยะขอบตอนปริ้น */}
+      <main className="max-w-4xl mx-auto p-4 py-6 print:p-0 print:m-0 print:max-w-none print:w-full">
         {activeTab === 'projects' && view === 'clients' ? ClientListView() : null}
         {activeTab === 'projects' && view === 'models' ? ModelsView() : null}
         {activeTab === 'projects' && view === 'parts' ? PartsView() : null}
