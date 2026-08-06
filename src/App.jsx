@@ -48,6 +48,7 @@ export const compressImage = (file, callback) => {
   };
 };
 
+// === อัปเดต CSS สำหรับจัดการหน้าพิมพ์ (Print) ===
 const printStyles = `
   @page { size: A4 portrait; margin: 8mm; }
   
@@ -68,6 +69,7 @@ const printStyles = `
     
     .avoid-break { page-break-inside: avoid !important; }
     .page-break-before { page-break-before: always !important; }
+    .page-break-after { page-break-after: always !important; }
     
     .print-h1 { font-size: 14px !important; font-weight: bold !important; line-height: 1.2 !important; }
     .print-text { font-size: 11px !important; line-height: 1.4 !important; }
@@ -206,7 +208,10 @@ export default function App() {
   const [formData, setFormData] = useState(null);
   
   const [selectedTrialIds, setSelectedTrialIds] = useState([]);
+  
+  // === State สำหรับจัดการหน้า Report ในปฏิทิน ===
   const [selectedScheduleIds, setSelectedScheduleIds] = useState([]);
+  const [includeCalendarInReport, setIncludeCalendarInReport] = useState(true);
 
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
@@ -325,6 +330,7 @@ export default function App() {
       })
       .sort((a,b) => new Date(a.date) - new Date(b.date));
 
+    // แยกฟังก์ชันตารางปฏิทินออกมาเพื่อให้ใช้ซ้ำในหน้า Report ได้
     const renderCalendarGrid = () => {
       const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
       const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay(); 
@@ -379,15 +385,15 @@ export default function App() {
                 )
               })}
             </div>
-            <button onClick={() => { setBookingData({...getInitialBookingData(), date: dateStr}); setIsBooking(true); }} className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 text-blue-500 hover:bg-blue-100 rounded p-0.5"><Plus size={14}/></button>
+            <button onClick={() => { setBookingData({...getInitialBookingData(), date: dateStr}); setIsBooking(true); }} className="no-print absolute top-1 right-1 opacity-0 group-hover:opacity-100 text-blue-500 hover:bg-blue-100 rounded p-0.5"><Plus size={14}/></button>
           </div>
         );
       }
 
       return (
-        <div className="border border-gray-300 rounded-lg overflow-hidden shadow-sm bg-white mb-6">
-          <div className="grid grid-cols-7 bg-[#2b4c9b] text-white text-center text-[10px] md:text-xs font-bold divide-x divide-gray-400">
-            <div className="py-2 bg-[#d63434]">อาทิตย์</div>
+        <div className="border border-gray-300 rounded-lg overflow-hidden shadow-sm bg-white mb-6 print-exact-color">
+          <div className="grid grid-cols-7 bg-[#2b4c9b] text-white text-center text-[10px] md:text-xs font-bold divide-x divide-gray-400 print-exact-color">
+            <div className="py-2 bg-[#d63434] print-exact-color">อาทิตย์</div>
             <div className="py-2">จันทร์</div>
             <div className="py-2">อังคาร</div>
             <div className="py-2">พุธ</div>
@@ -549,6 +555,7 @@ export default function App() {
 
     return (
       <>
+        {/* === ส่วนแสดงผลหน้าจอปกติ (ซ่อนตอนพิมพ์) === */}
         <div className="no-print space-y-6">
           <div className="space-y-2">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3 mb-2">
@@ -582,11 +589,15 @@ export default function App() {
                      <CalendarDays size={18} className="mr-2 text-blue-600"/> 
                      รายการนัดหมายประจำเดือน {monthNamesThai[currentMonth]}
                   </h3>
-                  <div className="flex gap-3 items-center">
+                  <div className="flex gap-3 items-center flex-wrap">
+                     <label className="flex items-center gap-1.5 text-xs font-bold text-gray-700 cursor-pointer border bg-white px-2 py-1 rounded shadow-sm hover:bg-gray-50">
+                        <input type="checkbox" className="w-3.5 h-3.5 text-blue-600 rounded" checked={includeCalendarInReport} onChange={e => setIncludeCalendarInReport(e.target.checked)} />
+                        📅 แนบหน้าปฏิทินด้วย
+                     </label>
+                     <span className="text-gray-300 hidden sm:inline">|</span>
                      <button onClick={() => setSelectedScheduleIds(currentMonthSchedules.map(s=>s.id))} className="text-xs font-semibold text-blue-600 hover:underline">เลือกทั้งหมด</button>
-                     <span className="text-gray-300">|</span>
                      <button onClick={() => setSelectedScheduleIds([])} className="text-xs font-semibold text-gray-500 hover:underline">ล้างทั้งหมด</button>
-                     <button onClick={() => window.print()} disabled={selectedScheduleIds.length === 0} className="text-xs bg-gray-800 text-white px-3 py-2 rounded-lg shadow font-bold disabled:bg-gray-300 disabled:cursor-not-allowed hover:bg-gray-900 transition-colors flex items-center">
+                     <button onClick={() => window.print()} disabled={selectedScheduleIds.length === 0} className="text-xs bg-gray-800 text-white px-3 py-2 rounded-lg shadow font-bold disabled:bg-gray-300 disabled:cursor-not-allowed hover:bg-gray-900 transition-colors flex items-center ml-auto">
                         <Printer size={14} className="mr-1"/> พิมพ์ Report
                      </button>
                   </div>
@@ -697,7 +708,9 @@ export default function App() {
           </div>
         </div>
 
+        {/* === ส่วนฟอร์มที่จะถูกแสดงเฉพาะตอนดึงไปพิมพ์ลงกระดาษ (Print Layout) === */}
         <div className="print-only w-full bg-white font-sans text-black">
+          {/* หัวกระดาษ */}
           <div className="flex items-center justify-between border-b-[3px] border-blue-900 pb-3 mb-6 avoid-break">
             <div className="flex items-center gap-4">
                <img src="/logo.png" alt="WISDOM AUTOPARTS" className="w-40 h-auto object-contain" onError={(e) => {
@@ -714,6 +727,22 @@ export default function App() {
             </div>
           </div>
 
+          {/* เงื่อนไขแสดงปฏิทินในใบ Report (ถ้าผู้ใช้ติ๊กเลือก) */}
+          {includeCalendarInReport && (
+             <div className="mb-8 avoid-break">
+                <h3 className="text-lg font-bold text-gray-800 mb-2 border-b-2 border-gray-200 pb-1">ภาพรวมปฏิทินประจำเดือน (Monthly Overview)</h3>
+                <div className="flex flex-wrap gap-3 text-[10px] font-semibold text-gray-600 mb-2">
+                   <span className="flex items-center"><div className="w-3 h-3 bg-[#fff3c4] border border-[#fce988] rounded mr-1"></div> งานฉีด / Trial</span>
+                   <span className="flex items-center"><div className="w-3 h-3 bg-[#6bb5ff] rounded mr-1"></div> งานจัดส่ง (Delivery)</span>
+                   <span className="flex items-center"><div className="w-3 h-3 bg-[#fc9c42] rounded mr-1"></div> Support / Jig</span>
+                   <span className="flex items-center"><div className="w-3 h-3 bg-[#a3f0b6] rounded mr-1"></div> นัดประชุม (Meeting)</span>
+                </div>
+                {renderCalendarGrid()}
+                <div className="page-break-after"></div>
+             </div>
+          )}
+
+          {/* รายการงาน */}
           <div className="space-y-6">
              {currentMonthSchedules.filter(s => selectedScheduleIds.includes(s.id)).map((s, index) => {
                 let extraDetails = [];
@@ -731,17 +760,19 @@ export default function App() {
                 return (
                   <div key={s.id} className={`avoid-break border-2 border-gray-300 rounded-xl overflow-hidden shadow-sm ${index > 0 && index % 4 === 0 ? 'page-break-before' : ''}`}>
                      <div className="bg-[#1f2937] text-white p-2.5 flex justify-between items-center print-exact-color">
-                       <h2 className="font-bold text-sm uppercase truncate pr-4">{s.title}</h2>
+                       <h2 className="font-bold text-sm uppercase truncate pr-4">รายการที่ {index + 1} : {getTypeLabel(s.type)}</h2>
                        <div className="text-xs font-bold whitespace-nowrap bg-gray-600 px-2 py-0.5 rounded print-exact-color">
                           {formatThaiDate(s.date)} {s.time ? `| เวลา: ${s.time}` : ''}
                        </div>
                      </div>
                      
+                     <div className="p-3 bg-white border-b border-gray-200">
+                        <span className="font-bold text-gray-500 text-[10px] block mb-0.5">หัวข้องาน (Title):</span>
+                        <h3 className="font-bold text-[14px] text-blue-900">{s.title}</h3>
+                     </div>
+
                      <div className="p-3 bg-white">
                        <div className="flex gap-4 mb-2 pb-2 border-b border-gray-200">
-                          <div className="flex-1 text-[11px]">
-                             <span className="font-bold text-gray-500">ประเภทงาน (Type):</span> <span className="font-bold text-blue-800">{getTypeLabel(s.type)}</span>
-                          </div>
                           <div className="flex-1 text-[11px]">
                              <span className="font-bold text-gray-500">สถานะ (Status):</span> {s.status === 'completed' ? <span className="font-bold text-green-700">✅ เสร็จสิ้น (Completed)</span> : <span className="font-bold text-orange-600">⏳ รอดำเนินการ (Pending)</span>}
                           </div>
