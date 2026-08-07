@@ -1206,7 +1206,7 @@ export default function App() {
             <div className="bg-white p-8 rounded-lg shadow text-center text-gray-500">ยังไม่มีประวัติการ Trial สำหรับแม่พิมพ์นี้</div>
           ) : (
             partTrials.map((t, index) => {
-              const selectedCond = t.conditions?.find(c => c.customerResult === 'ok' || c.customerResult === 'temporary') || t.conditions?.[0];
+              const selectedCond = (t.conditions || []).find(c => c.customerResult === 'ok' || c.customerResult === 'temporary') || (t.conditions || [])[0];
 
               return (
                 <div key={t.id} className="bg-white p-4 rounded-xl shadow border border-gray-100 relative group flex flex-col md:flex-row gap-4">
@@ -1222,7 +1222,6 @@ export default function App() {
                          </span>
                       )}
 
-                      {/* ป้ายกำกับ กรณีลูกค้าร้องขอ */}
                       {t.isSpecialRequest && (
                          <span className="bg-yellow-100 text-yellow-800 border border-yellow-300 font-bold px-2 py-0.5 rounded-full text-[10px] mr-2 flex items-center shadow-sm">
                            ⭐ Special Request
@@ -1238,7 +1237,7 @@ export default function App() {
                       )}
 
                       <span className="text-gray-500 text-sm">วันที่: {formatThaiDate(t.date)}</span>
-                      <span className="ml-auto text-sm text-gray-500">PE: {t.signatures && t.signatures.length > 0 ? t.signatures[0].name : '-'}</span>
+                      <span className="ml-auto text-sm text-gray-500">PE: {(t.signatures || [])[0] ? (t.signatures || [])[0].name : '-'}</span>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 text-sm mb-2 bg-gray-50 p-2 rounded">
@@ -1260,7 +1259,6 @@ export default function App() {
                       </div>
                     </div>
 
-                    {/* แสดงรายละเอียดกรณีพิเศษ (ถ้ามี) */}
                     {t.isSpecialRequest && (
                        <div className="text-sm bg-yellow-50 p-2 rounded border border-yellow-200 mt-2 flex gap-3 shadow-sm">
                           <div className="flex-1">
@@ -1275,15 +1273,15 @@ export default function App() {
                     
                     <div className="text-sm bg-red-50/50 p-2 rounded border border-red-100 mt-2">
                       <strong className="text-red-600">ปัญหาที่พบ:</strong>
-                      {t.partProblems.length === 0 && t.moldProblems.length === 0 ? (
+                      {(t.partProblems || []).length === 0 && (t.moldProblems || []).length === 0 ? (
                         <span className="text-gray-500 ml-2">- ไม่มี -</span>
                       ) : (
                         <div className="mt-1 ml-2 space-y-1">
-                          {t.partProblems.length > 0 && (
-                            <div className="text-red-700"><span className="font-semibold text-gray-700">ชิ้นงาน ({t.partProblems.length}):</span> {t.partProblems.map(p => p.defect).join(', ')}</div>
+                          {(t.partProblems || []).length > 0 && (
+                            <div className="text-red-700"><span className="font-semibold text-gray-700">ชิ้นงาน ({(t.partProblems || []).length}):</span> {(t.partProblems || []).map(p => p.defect).join(', ')}</div>
                           )}
-                          {t.moldProblems.length > 0 && (
-                            <div className="text-orange-700"><span className="font-semibold text-gray-700">แม่พิมพ์ ({t.moldProblems.length}):</span> {t.moldProblems.map(p => p.note || 'ดูรูปภาพอ้างอิง').join(', ')}</div>
+                          {(t.moldProblems || []).length > 0 && (
+                            <div className="text-orange-700"><span className="font-semibold text-gray-700">แม่พิมพ์ ({(t.moldProblems || []).length}):</span> {(t.moldProblems || []).map(p => p.note || 'ดูรูปภาพอ้างอิง').join(', ')}</div>
                           )}
                         </div>
                       )}
@@ -1294,7 +1292,25 @@ export default function App() {
                      <ActionButtons 
                         id={t.id} 
                         isEditing={false} 
-                        onEdit={() => { setEditingTrialId(t.id); setFormData(JSON.parse(JSON.stringify(t))); setView('trial_form'); }} 
+                        onEdit={() => { 
+                           const base = getInitialTrialData();
+                           const safeData = {
+                              ...base,
+                              ...t,
+                              images: { ...base.images, ...(t.images || {}) },
+                              partProblems: t.partProblems || [],
+                              moldProblems: t.moldProblems || [],
+                              equipmentImages: t.equipmentImages || [],
+                              monitorImages: t.monitorImages || [],
+                              atmosphereImages: t.atmosphereImages || [],
+                              meetingImages: t.meetingImages || [],
+                              conditions: t.conditions && t.conditions.length > 0 ? t.conditions : base.conditions,
+                              signatures: t.signatures && t.signatures.length > 0 ? t.signatures : base.signatures
+                           };
+                           setEditingTrialId(t.id); 
+                           setFormData(safeData); 
+                           setView('trial_form'); 
+                        }} 
                         onDelete={() => handleDeleteTrial(t.id)} 
                         confirmDeleteId={confirmDeleteId} 
                         setConfirmDeleteId={setConfirmDeleteId}
@@ -1327,35 +1343,35 @@ export default function App() {
 
     const addProblem = (type) => {
       const newProblem = { id: Date.now() + Math.random(), img: null, note: '', cause: '', fix: '', status: '' };
-      if (type === 'part') setFormData({...formData, partProblems: [...formData.partProblems, { ...newProblem, defect: 'Flash (รอยครีบ)' }]});
-      if (type === 'mold') setFormData({...formData, moldProblems: [...formData.moldProblems, newProblem]});
+      if (type === 'part') setFormData({...formData, partProblems: [...(formData.partProblems || []), { ...newProblem, defect: 'Flash (รอยครีบ)' }]});
+      if (type === 'mold') setFormData({...formData, moldProblems: [...(formData.moldProblems || []), newProblem]});
     };
     
     const updateProblem = (type, id, field, value) => {
-      if (type === 'part') setFormData({...formData, partProblems: formData.partProblems.map(p => p.id === id ? {...p, [field]: value} : p)});
-      if (type === 'mold') setFormData({...formData, moldProblems: formData.moldProblems.map(p => p.id === id ? {...p, [field]: value} : p)});
+      if (type === 'part') setFormData({...formData, partProblems: (formData.partProblems || []).map(p => p.id === id ? {...p, [field]: value} : p)});
+      if (type === 'mold') setFormData({...formData, moldProblems: (formData.moldProblems || []).map(p => p.id === id ? {...p, [field]: value} : p)});
     };
 
     const addCondition = () => {
       const newCond = {
         id: Date.now() + Math.random(),
-        name: `Condition #${formData.conditions.length + 1}`,
+        name: `Condition #${(formData.conditions || []).length + 1}`,
         actWeights: {}, actCycleTime: '', note: '', customerResult: 'pending'
       };
-      setFormData({ ...formData, conditions: [...formData.conditions, newCond] });
+      setFormData({ ...formData, conditions: [...(formData.conditions || []), newCond] });
     };
 
     const updateCondition = (id, field, value) => {
       setFormData({
         ...formData,
-        conditions: formData.conditions.map(c => c.id === id ? { ...c, [field]: value } : c)
+        conditions: (formData.conditions || []).map(c => c.id === id ? { ...c, [field]: value } : c)
       });
     };
 
     const updateActWeight = (condId, cavId, value) => {
        setFormData({
           ...formData,
-          conditions: formData.conditions.map(c => {
+          conditions: (formData.conditions || []).map(c => {
              if (c.id === condId) {
                 return { ...c, actWeights: { ...(c.actWeights || {}), [cavId]: value } };
              }
@@ -1458,7 +1474,6 @@ export default function App() {
              )}
           </div>
 
-          {/* === ส่วนกรอกข้อมูล "กรณีลูกค้าร้องขอพิเศษ" === */}
           <div className="bg-yellow-50 border border-yellow-300 p-3 rounded mb-4 shadow-sm">
              <label className="flex items-center gap-2 font-bold text-yellow-900 cursor-pointer">
                 <input type="checkbox" className="w-5 h-5 text-yellow-600 rounded" checked={formData.isSpecialRequest} onChange={e => setFormData({...formData, isSpecialRequest: e.target.checked})} />
@@ -1486,57 +1501,57 @@ export default function App() {
           <div className="space-y-3">
              <p className="font-semibold text-blue-800 text-sm border-b pb-1">1.1 สภาพแม่พิมพ์ (Mold Setup)</p>
              <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-               <ImageUpload label="แม่พิมพ์ปิด" value={formData.images.setupClose} onChange={(url) => setFormData({...formData, images: {...formData.images, setupClose: url}})} onZoom={setZoomedImg} />
-               <ImageUpload label="แม่พิมพ์เปิด" value={formData.images.setupOpen} onChange={(url) => setFormData({...formData, images: {...formData.images, setupOpen: url}})} onZoom={setZoomedImg} />
-               <ImageUpload label="ฝั่ง Cavity" value={formData.images.cav} onChange={(url) => setFormData({...formData, images: {...formData.images, cav: url}})} onZoom={setZoomedImg} />
-               <ImageUpload label="ฝั่ง Core" value={formData.images.core} onChange={(url) => setFormData({...formData, images: {...formData.images, core: url}})} onZoom={setZoomedImg} />
-               <ImageUpload label="ฝั่ง Core (เช็คปลดงาน)" value={formData.images.coreEjector} onChange={(url) => setFormData({...formData, images: {...formData.images, coreEjector: url}})} onZoom={setZoomedImg} />
+               <ImageUpload label="แม่พิมพ์ปิด" value={(formData.images || {}).setupClose} onChange={(url) => setFormData({...formData, images: {...(formData.images || {}), setupClose: url}})} onZoom={setZoomedImg} />
+               <ImageUpload label="แม่พิมพ์เปิด" value={(formData.images || {}).setupOpen} onChange={(url) => setFormData({...formData, images: {...(formData.images || {}), setupOpen: url}})} onZoom={setZoomedImg} />
+               <ImageUpload label="ฝั่ง Cavity" value={(formData.images || {}).cav} onChange={(url) => setFormData({...formData, images: {...(formData.images || {}), cav: url}})} onZoom={setZoomedImg} />
+               <ImageUpload label="ฝั่ง Core" value={(formData.images || {}).core} onChange={(url) => setFormData({...formData, images: {...(formData.images || {}), core: url}})} onZoom={setZoomedImg} />
+               <ImageUpload label="ฝั่ง Core (เช็คปลดงาน)" value={(formData.images || {}).coreEjector} onChange={(url) => setFormData({...formData, images: {...(formData.images || {}), coreEjector: url}})} onZoom={setZoomedImg} />
              </div>
              
              <p className="font-semibold text-blue-800 text-sm border-b pb-1 mt-4">1.2 Material, Machine & Packing</p>
              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-               <ImageUpload label="กระสอบเม็ดพลาสติก" value={formData.images?.resin} onChange={(url) => setFormData({...formData, images: {...formData.images, resin: url}})} onZoom={setZoomedImg} />
-               <ImageUpload label="เครื่องจักร & ป้าย" value={formData.images?.machine} onChange={(url) => setFormData({...formData, images: {...formData.images, machine: url}})} onZoom={setZoomedImg} />
-               <ImageUpload label="Box / PACKING" value={formData.images?.packing} onChange={(url) => setFormData({...formData, images: {...formData.images, packing: url}})} onZoom={setZoomedImg} />
+               <ImageUpload label="กระสอบเม็ดพลาสติก" value={(formData.images || {}).resin} onChange={(url) => setFormData({...formData, images: {...(formData.images || {}), resin: url}})} onZoom={setZoomedImg} />
+               <ImageUpload label="เครื่องจักร & ป้าย" value={(formData.images || {}).machine} onChange={(url) => setFormData({...formData, images: {...(formData.images || {}), machine: url}})} onZoom={setZoomedImg} />
+               <ImageUpload label="Box / PACKING" value={(formData.images || {}).packing} onChange={(url) => setFormData({...formData, images: {...(formData.images || {}), packing: url}})} onZoom={setZoomedImg} />
              </div>
 
              <div className="flex justify-between items-center mt-4 border-b pb-1">
                 <p className="font-semibold text-blue-800 text-sm">1.3 อุปกรณ์เสริม (เช่น Chiller, Hot Runner ฯลฯ)</p>
-                <button onClick={() => setFormData({...formData, equipmentImages: [...formData.equipmentImages, { id: Date.now() + Math.random(), img: null, note: '' }]})} className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">+ เพิ่มรูปอุปกรณ์</button>
+                <button onClick={() => setFormData({...formData, equipmentImages: [...(formData.equipmentImages || []), { id: Date.now() + Math.random(), img: null, note: '' }]})} className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">+ เพิ่มรูปอุปกรณ์</button>
              </div>
              <div className="grid grid-cols-2 gap-2">
-                {formData.equipmentImages.map(eq => (
+                {(formData.equipmentImages || []).map(eq => (
                   <div key={eq.id} className="border p-2 rounded bg-gray-50 flex flex-col relative group">
-                     <button onClick={() => setFormData({...formData, equipmentImages: formData.equipmentImages.filter(i => i.id !== eq.id)})} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 z-10 hidden group-hover:block"><X size={12}/></button>
-                     <ImageUpload label="รูปอุปกรณ์" height="h-20" value={eq.img} onChange={(url) => setFormData({...formData, equipmentImages: formData.equipmentImages.map(i => i.id === eq.id ? {...i, img: url} : i)})} onZoom={setZoomedImg} />
-                     <input type="text" className="w-full text-xs p-1 border rounded mt-1" placeholder="ระบุชื่ออุปกรณ์..." value={eq.note} onChange={(e) => setFormData({...formData, equipmentImages: formData.equipmentImages.map(i => i.id === eq.id ? {...i, note: e.target.value} : i)})} />
+                     <button onClick={() => setFormData({...formData, equipmentImages: (formData.equipmentImages || []).filter(i => i.id !== eq.id)})} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 z-10 hidden group-hover:block"><X size={12}/></button>
+                     <ImageUpload label="รูปอุปกรณ์" height="h-20" value={eq.img} onChange={(url) => setFormData({...formData, equipmentImages: (formData.equipmentImages || []).map(i => i.id === eq.id ? {...i, img: url} : i)})} onZoom={setZoomedImg} />
+                     <input type="text" className="w-full text-xs p-1 border rounded mt-1" placeholder="ระบุชื่ออุปกรณ์..." value={eq.note} onChange={(e) => setFormData({...formData, equipmentImages: (formData.equipmentImages || []).map(i => i.id === eq.id ? {...i, note: e.target.value} : i)})} />
                   </div>
                 ))}
              </div>
 
              <div className="flex justify-between items-center mt-4 border-b pb-1">
                 <p className="font-semibold text-blue-800 text-sm">1.4 บรรยากาศ (รูปผู้เข้าร่วมทดลอง)</p>
-                <button onClick={() => setFormData({...formData, atmosphereImages: [...formData.atmosphereImages, { id: Date.now() + Math.random(), img: null }]})} className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">+ เพิ่มรูป</button>
+                <button onClick={() => setFormData({...formData, atmosphereImages: [...(formData.atmosphereImages || []), { id: Date.now() + Math.random(), img: null }]})} className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">+ เพิ่มรูป</button>
              </div>
              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-               {formData.atmosphereImages.map(imgObj => (
+               {(formData.atmosphereImages || []).map(imgObj => (
                   <div key={imgObj.id} className="relative group">
-                    <button onClick={() => setFormData({...formData, atmosphereImages: formData.atmosphereImages.filter(i => i.id !== imgObj.id)})} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 z-10 hidden group-hover:block"><X size={12}/></button>
-                    <ImageUpload label="บรรยากาศ" value={imgObj.img} onChange={(url) => setFormData({...formData, atmosphereImages: formData.atmosphereImages.map(i => i.id === imgObj.id ? {...i, img: url} : i)})} onZoom={setZoomedImg} />
+                    <button onClick={() => setFormData({...formData, atmosphereImages: (formData.atmosphereImages || []).filter(i => i.id !== imgObj.id)})} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 z-10 hidden group-hover:block"><X size={12}/></button>
+                    <ImageUpload label="บรรยากาศ" value={imgObj.img} onChange={(url) => setFormData({...formData, atmosphereImages: (formData.atmosphereImages || []).map(i => i.id === imgObj.id ? {...i, img: url} : i)})} onZoom={setZoomedImg} />
                   </div>
                ))}
              </div>
 
              <div className="flex justify-between items-center mt-4 border-b pb-1">
                 <p className="font-semibold text-blue-800 text-sm">1.5 Condition (หน้าจอมอนิเตอร์เครื่องฉีด)</p>
-                <button onClick={() => setFormData({...formData, monitorImages: [...formData.monitorImages, { id: Date.now() + Math.random(), img: null, note: '' }]})} className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">+ เพิ่มจอ Monitor</button>
+                <button onClick={() => setFormData({...formData, monitorImages: [...(formData.monitorImages || []), { id: Date.now() + Math.random(), img: null, note: '' }]})} className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">+ เพิ่มจอ Monitor</button>
              </div>
              <div className="grid grid-cols-2 gap-2">
-                {formData.monitorImages.map(m => (
+                {(formData.monitorImages || []).map(m => (
                   <div key={m.id} className="border p-2 rounded bg-gray-50 flex gap-2 relative group">
-                     <button onClick={() => setFormData({...formData, monitorImages: formData.monitorImages.filter(i => i.id !== m.id)})} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 z-10 hidden group-hover:block"><X size={12}/></button>
-                     <div className="w-1/2"><ImageUpload label="หน้าจอ" height="h-24" value={m.img} onChange={(url) => setFormData({...formData, monitorImages: formData.monitorImages.map(i => i.id === m.id ? {...i, img: url} : i)})} onZoom={setZoomedImg} /></div>
-                     <div className="w-1/2"><textarea className="w-full h-full text-xs p-1 border rounded" placeholder="ระบุหน้าจอ..." value={m.note} onChange={(e) => setFormData({...formData, monitorImages: formData.monitorImages.map(i => i.id === m.id ? {...i, note: e.target.value} : i)})} /></div>
+                     <button onClick={() => setFormData({...formData, monitorImages: (formData.monitorImages || []).filter(i => i.id !== m.id)})} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 z-10 hidden group-hover:block"><X size={12}/></button>
+                     <div className="w-1/2"><ImageUpload label="หน้าจอ" height="h-24" value={m.img} onChange={(url) => setFormData({...formData, monitorImages: (formData.monitorImages || []).map(i => i.id === m.id ? {...i, img: url} : i)})} onZoom={setZoomedImg} /></div>
+                     <div className="w-1/2"><textarea className="w-full h-full text-xs p-1 border rounded" placeholder="ระบุหน้าจอ..." value={m.note} onChange={(e) => setFormData({...formData, monitorImages: (formData.monitorImages || []).map(i => i.id === m.id ? {...i, note: e.target.value} : i)})} /></div>
                   </div>
                 ))}
              </div>
@@ -1552,10 +1567,10 @@ export default function App() {
                <button onClick={() => addProblem('part')} className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded">+ เพิ่มรูปปัญหา</button>
              </div>
              <div className="space-y-3">
-               {formData.partProblems.length === 0 && <p className="text-xs text-gray-400 text-center">ไม่มีปัญหา</p>}
-               {formData.partProblems.map((p) => (
+               {(formData.partProblems || []).length === 0 && <p className="text-xs text-gray-400 text-center">ไม่มีปัญหา</p>}
+               {(formData.partProblems || []).map((p) => (
                  <div key={p.id} className="flex flex-col md:flex-row gap-3 bg-red-50 p-3 rounded border border-red-100 relative">
-                    <button onClick={() => setFormData({...formData, partProblems: formData.partProblems.filter(item => item.id !== p.id)})} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"><X size={12}/></button>
+                    <button onClick={() => setFormData({...formData, partProblems: (formData.partProblems || []).filter(item => item.id !== p.id)})} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"><X size={12}/></button>
                     <div className="md:w-1/3"><ImageUpload label="รูป NG" height="h-full min-h-[100px]" value={p.img} onChange={(url) => updateProblem('part', p.id, 'img', url)} onZoom={setZoomedImg} /></div>
                     <div className="md:w-2/3 space-y-2">
                       <select className="w-full border p-1.5 text-sm rounded bg-white text-red-700 font-semibold" value={p.defect} onChange={(e) => updateProblem('part', p.id, 'defect', e.target.value)}>
@@ -1582,10 +1597,10 @@ export default function App() {
                <button onClick={() => addProblem('mold')} className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded">+ เพิ่มรูปปัญหา</button>
              </div>
              <div className="space-y-3">
-               {formData.moldProblems.length === 0 && <p className="text-xs text-gray-400 text-center">ไม่มีปัญหา</p>}
-               {formData.moldProblems.map(p => (
+               {(formData.moldProblems || []).length === 0 && <p className="text-xs text-gray-400 text-center">ไม่มีปัญหา</p>}
+               {(formData.moldProblems || []).map(p => (
                  <div key={p.id} className="flex flex-col md:flex-row gap-3 bg-orange-50 p-3 rounded border border-orange-100 relative">
-                    <button onClick={() => setFormData({...formData, moldProblems: formData.moldProblems.filter(item => item.id !== p.id)})} className="absolute -top-2 -right-2 bg-orange-500 text-white rounded-full p-1"><X size={12}/></button>
+                    <button onClick={() => setFormData({...formData, moldProblems: (formData.moldProblems || []).filter(item => item.id !== p.id)})} className="absolute -top-2 -right-2 bg-orange-500 text-white rounded-full p-1"><X size={12}/></button>
                     <div className="md:w-1/3"><ImageUpload label="รูป Mold NG" height="h-full min-h-[100px]" value={p.img} onChange={(url) => updateProblem('mold', p.id, 'img', url)} onZoom={setZoomedImg} /></div>
                     <div className="md:w-2/3 space-y-2">
                       <textarea className="w-full text-sm p-2 border rounded focus:ring-1" rows="1" placeholder="รายละเอียด (เช่น สลักค้าง, น้ำรั่ว...)" value={p.note || ''} onChange={(e) => updateProblem('mold', p.id, 'note', e.target.value)}></textarea>
@@ -1611,11 +1626,11 @@ export default function App() {
           </div>
           
           <div className="space-y-3">
-             {formData.conditions.map((cond, idx) => {
+             {(formData.conditions || []).map((cond, idx) => {
                 return (
                   <div key={cond.id} className={`p-3 rounded-lg border-2 transition-all relative ${['ok', 'temporary'].includes(cond.customerResult) ? 'border-green-500 bg-green-50/20 shadow-sm' : 'border-gray-200 bg-gray-50'}`}>
-                     {formData.conditions.length > 1 && (
-                        <button onClick={() => setFormData({ ...formData, conditions: formData.conditions.filter(c => c.id !== cond.id) })} className="absolute top-2 right-2 text-gray-400 hover:text-red-500"><X size={16}/></button>
+                     {(formData.conditions || []).length > 1 && (
+                        <button onClick={() => setFormData({ ...formData, conditions: (formData.conditions || []).filter(c => c.id !== cond.id) })} className="absolute top-2 right-2 text-gray-400 hover:text-red-500"><X size={16}/></button>
                      )}
                      <div className="flex items-center justify-between mb-2 pr-6 border-b pb-2">
                         <input type="text" className="font-bold text-blue-900 bg-transparent border-b border-dashed border-gray-400 focus:outline-none focus:border-blue-600 text-sm w-full" value={cond.name} onChange={(e) => updateCondition(cond.id, 'name', e.target.value)} placeholder="ชื่อ Condition..." />
@@ -1737,18 +1752,18 @@ export default function App() {
                {(formData.signatures || []).map((sig, index) => (
                   <div key={sig.id} className="border border-gray-300 rounded p-3 bg-white relative group flex flex-col gap-2">
                     <button 
-                       onClick={() => setFormData({...formData, signatures: formData.signatures.filter(s => s.id !== sig.id)})} 
+                       onClick={() => setFormData({...formData, signatures: (formData.signatures || []).filter(s => s.id !== sig.id)})} 
                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 z-10 hidden group-hover:block shadow-md hover:bg-red-600"
                     >
                        <X size={12}/>
                     </button>
                     <div className="flex flex-col">
                        <label className="text-[10px] text-gray-500 mb-0.5">ตำแหน่ง (Role)</label>
-                       <input type="text" className="w-full text-xs p-1.5 border bg-gray-50 rounded outline-none text-gray-700 focus:ring-1" placeholder="เช่น PE, QC, Tooling Maker..." value={sig.role} onChange={e => setFormData({...formData, signatures: formData.signatures.map(s => s.id === sig.id ? {...s, role: e.target.value} : s)})} />
+                       <input type="text" className="w-full text-xs p-1.5 border bg-gray-50 rounded outline-none text-gray-700 focus:ring-1" placeholder="เช่น PE, QC, Tooling Maker..." value={sig.role} onChange={e => setFormData({...formData, signatures: (formData.signatures || []).map(s => s.id === sig.id ? {...s, role: e.target.value} : s)})} />
                     </div>
                     <div className="flex flex-col">
                        <label className="text-[10px] text-gray-500 mb-0.5">ชื่อผู้ลงนาม (Name)</label>
-                       <input type="text" className="w-full text-sm p-1.5 border border-blue-200 rounded outline-none text-blue-700 font-semibold focus:ring-1 focus:border-blue-400" placeholder="ระบุชื่อ..." value={sig.name} onChange={e => setFormData({...formData, signatures: formData.signatures.map(s => s.id === sig.id ? {...s, name: e.target.value} : s)})} />
+                       <input type="text" className="w-full text-sm p-1.5 border border-blue-200 rounded outline-none text-blue-700 font-semibold focus:ring-1 focus:border-blue-400" placeholder="ระบุชื่อ..." value={sig.name} onChange={e => setFormData({...formData, signatures: (formData.signatures || []).map(s => s.id === sig.id ? {...s, name: e.target.value} : s)})} />
                     </div>
                   </div>
                ))}
@@ -1918,7 +1933,7 @@ export default function App() {
                           {/* Row 5 */}
                           <tr>
                             <td className="font-bold bg-gray-100 print-exact-color">Mold Maker :</td>
-                            <td>{t.signatures && t.signatures[1] ? t.signatures[1].name : '-'}</td>
+                            <td>{(t.signatures || [])[1] ? (t.signatures || [])[1].name : '-'}</td>
                             <td className="font-bold bg-gray-100 print-exact-color">Cavity QTY :</td>
                             <td>{path.part.cavity}</td>
                             <td colSpan="2" className="text-center"></td>
@@ -1939,7 +1954,7 @@ export default function App() {
                             <td className="whitespace-pre-wrap font-bold text-blue-900">{path.part.name}</td>
                             <td colSpan="2" rowSpan="2" className="align-top leading-relaxed text-[10px]">
                                {/* Conditions display */}
-                               {t.conditions?.map((c, i) => (
+                               {(t.conditions || []).map((c, i) => (
                                  <div key={i} className="mb-1 border-b border-gray-300 border-dashed pb-1 last:border-0">
                                    <strong>{c.name}:</strong> C/T {c.actCycleTime||'-'}s |
                                    {(path.part.cavities || []).map(cav => {
@@ -1950,8 +1965,8 @@ export default function App() {
                                  </div>
                                ))}
                             </td>
-                            <td className="text-center align-middle font-[cursive] text-blue-800 text-[14px]">{t.signatures && t.signatures[0] ? t.signatures[0].name : ''}</td>
-                            <td className="text-center align-middle font-[cursive] text-blue-800 text-[14px]">{t.signatures && t.signatures[2] ? t.signatures[2].name : ''}</td>
+                            <td className="text-center align-middle font-[cursive] text-blue-800 text-[14px]">{(t.signatures || [])[0] ? (t.signatures || [])[0].name : ''}</td>
+                            <td className="text-center align-middle font-[cursive] text-blue-800 text-[14px]">{(t.signatures || [])[2] ? (t.signatures || [])[2].name : ''}</td>
                           </tr>
 
                           {/* Row 8 */}
@@ -1970,7 +1985,7 @@ export default function App() {
                           </tr>
 
                           {/* Part Problems loop */}
-                          {t.partProblems.map(p => (
+                          {(t.partProblems || []).map(p => (
                              <tr key={p.id}>
                                 <td colSpan="3" className="align-top border-r-0">
                                    <span className="font-bold text-red-700 bg-red-50 px-1 print-exact-color">PART DEFECT:</span> <span className="font-bold">{p.defect}</span> <span className="text-[9px] px-1 border border-black">{p.status || '-'}</span><br/>
@@ -1985,7 +2000,7 @@ export default function App() {
                           ))}
 
                           {/* Mold Problems loop */}
-                          {t.moldProblems.map(p => (
+                          {(t.moldProblems || []).map(p => (
                              <tr key={p.id}>
                                 <td colSpan="3" className="align-top border-r-0">
                                    <span className="font-bold text-orange-700 bg-orange-50 px-1 print-exact-color">MOLD DEFECT:</span> <span className="text-[9px] px-1 border border-black">{p.status || '-'}</span><br/>
@@ -2000,7 +2015,7 @@ export default function App() {
                           ))}
 
                           {/* IF NO PROBLEMS */}
-                          {t.partProblems.length === 0 && t.moldProblems.length === 0 && (
+                          {(t.partProblems || []).length === 0 && (t.moldProblems || []).length === 0 && (
                              <tr>
                                 <td colSpan="6" className="text-center py-4 text-gray-500">- ไม่มีปัญหาในการทดลองฉีด (No Defects) -</td>
                              </tr>
@@ -2017,14 +2032,14 @@ export default function App() {
                           <tr>
                              <td colSpan="6" className="p-2 border-black">
                                 <div className="flex flex-wrap justify-center gap-2">
-                                  {t.images.setupClose && <div className="text-center w-[23%]"><img src={t.images.setupClose} className="h-20 w-full object-cover border border-gray-400"/><div className="text-[8px] mt-0.5">แม่พิมพ์ปิด</div></div>}
-                                  {t.images.setupOpen && <div className="text-center w-[23%]"><img src={t.images.setupOpen} className="h-20 w-full object-cover border border-gray-400"/><div className="text-[8px] mt-0.5">แม่พิมพ์เปิด</div></div>}
-                                  {t.images.cav && <div className="text-center w-[23%]"><img src={t.images.cav} className="h-20 w-full object-cover border border-gray-400"/><div className="text-[8px] mt-0.5">ฝั่ง Cavity</div></div>}
-                                  {t.images.core && <div className="text-center w-[23%]"><img src={t.images.core} className="h-20 w-full object-cover border border-gray-400"/><div className="text-[8px] mt-0.5">ฝั่ง Core</div></div>}
-                                  {t.images.coreEjector && <div className="text-center w-[23%]"><img src={t.images.coreEjector} className="h-20 w-full object-cover border border-gray-400"/><div className="text-[8px] mt-0.5">เช็คปลดงาน</div></div>}
-                                  {t.images.resin && <div className="text-center w-[23%]"><img src={t.images.resin} className="h-20 w-full object-cover border border-gray-400"/><div className="text-[8px] mt-0.5">กระสอบเม็ด</div></div>}
-                                  {t.images.machine && <div className="text-center w-[23%]"><img src={t.images.machine} className="h-20 w-full object-cover border border-gray-400"/><div className="text-[8px] mt-0.5">เครื่องจักร</div></div>}
-                                  {t.images.packing && <div className="text-center w-[23%]"><img src={t.images.packing} className="h-20 w-full object-cover border border-gray-400"/><div className="text-[8px] mt-0.5">Box / Packing</div></div>}
+                                  {(t.images || {}).setupClose && <div className="text-center w-[23%]"><img src={(t.images || {}).setupClose} className="h-20 w-full object-cover border border-gray-400"/><div className="text-[8px] mt-0.5">แม่พิมพ์ปิด</div></div>}
+                                  {(t.images || {}).setupOpen && <div className="text-center w-[23%]"><img src={(t.images || {}).setupOpen} className="h-20 w-full object-cover border border-gray-400"/><div className="text-[8px] mt-0.5">แม่พิมพ์เปิด</div></div>}
+                                  {(t.images || {}).cav && <div className="text-center w-[23%]"><img src={(t.images || {}).cav} className="h-20 w-full object-cover border border-gray-400"/><div className="text-[8px] mt-0.5">ฝั่ง Cavity</div></div>}
+                                  {(t.images || {}).core && <div className="text-center w-[23%]"><img src={(t.images || {}).core} className="h-20 w-full object-cover border border-gray-400"/><div className="text-[8px] mt-0.5">ฝั่ง Core</div></div>}
+                                  {(t.images || {}).coreEjector && <div className="text-center w-[23%]"><img src={(t.images || {}).coreEjector} className="h-20 w-full object-cover border border-gray-400"/><div className="text-[8px] mt-0.5">เช็คปลดงาน</div></div>}
+                                  {(t.images || {}).resin && <div className="text-center w-[23%]"><img src={(t.images || {}).resin} className="h-20 w-full object-cover border border-gray-400"/><div className="text-[8px] mt-0.5">กระสอบเม็ด</div></div>}
+                                  {(t.images || {}).machine && <div className="text-center w-[23%]"><img src={(t.images || {}).machine} className="h-20 w-full object-cover border border-gray-400"/><div className="text-[8px] mt-0.5">เครื่องจักร</div></div>}
+                                  {(t.images || {}).packing && <div className="text-center w-[23%]"><img src={(t.images || {}).packing} className="h-20 w-full object-cover border border-gray-400"/><div className="text-[8px] mt-0.5">Box / Packing</div></div>}
                                 </div>
                              </td>
                           </tr>
