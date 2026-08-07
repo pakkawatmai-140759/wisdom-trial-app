@@ -171,15 +171,7 @@ const initialModels = [
   { id: 3, clientId: 1, name: 'P700' },
 ];
 const initialSchedules = [];
-const initialParts = [
-  { 
-    id: 1, modelId: 1, code: '82333-3DA7-H010-M1-0000\n82733-3DA7-H010-M1-0000', 
-    name: 'REC COVER R MID CUSH\nREC COVER L MID CUSH', material: 'PP CP-WPIN (NH900L)', cavity: '1+1', components: 'CSK JOB.701', img: '',
-    cavities: [{ id: 1, name: 'R', std: '22', plus: '2', minus: '1' }, { id: 2, name: 'L', std: '22', plus: '2', minus: '1' }],
-    stdCycleTime: '75', stdCycleTimeTol: '5',
-    componentsList: []
-  }
-];
+const initialParts = [];
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('projects'); 
@@ -357,9 +349,10 @@ export default function App() {
 
     const currentMonthSchedules = [...schedules]
       .filter(s => {
-         if (!s.date) return false;
-         const [y, m] = s.date.split('-');
-         return parseInt(y) === currentYear && parseInt(m) === currentMonth + 1;
+         if (!s.date || typeof s.date !== 'string') return false;
+         const dParts = s.date.split('-');
+         if(dParts.length < 2) return false;
+         return parseInt(dParts[0]) === currentYear && parseInt(dParts[1]) === currentMonth + 1;
       })
       .sort((a,b) => new Date(a.date) - new Date(b.date));
 
@@ -444,7 +437,7 @@ export default function App() {
                  <CalendarDays className="mr-2"/> 
                  {bookingData.id ? 'แก้ไขนัดหมาย / จองคิวงาน' : 'เพิ่มตารางนัดหมาย / จองคิวงาน'}
                </h2>
-               <p className="text-xs font-semibold text-gray-500 mt-1">วันที่ทำรายการ: {formatThaiDate(new Date().toISOString().split('T')[0])}</p>
+               <p className="text-xs font-semibold text-gray-500 mt-1">วันที่ทำรายการ: {formatThaiDate((new Date().toISOString() || '').split('T')[0])}</p>
              </div>
              <button onClick={() => { setIsBooking(false); setBookingData(getInitialBookingData()); }} className="text-gray-400 hover:text-red-500"><X size={24}/></button>
           </div>
@@ -547,7 +540,7 @@ export default function App() {
                      <select className="w-full border p-1.5 rounded focus:ring-2 outline-none text-sm" value={bookingData.partId} onChange={e => setBookingData({...bookingData, partId: Number(e.target.value)})}>
                        <option value="">-- ไม่ระบุ --</option>
                        {parts.filter(p => models.find(m => m.id === p.modelId)?.clientId === bookingData.clientId).map(p => (
-                         <option key={p.id} value={p.id}>{p.code.split('\n')[0]}{p.code.includes('\n')?'...':''}</option>
+                         <option key={p.id} value={p.id}>{(p.code||'').split('\n')[0]}{(p.code||'').includes('\n')?'...':''}</option>
                        ))}
                      </select>
                    </div>
@@ -623,7 +616,7 @@ export default function App() {
                      <button onClick={() => setSelectedScheduleIds(currentMonthSchedules.map(s=>s.id))} className="text-xs font-semibold text-blue-600 hover:underline">เลือกทั้งหมด</button>
                      <button onClick={() => setSelectedScheduleIds([])} className="text-xs font-semibold text-gray-500 hover:underline">ล้างทั้งหมด</button>
                      <button onClick={() => window.print()} disabled={selectedScheduleIds.length === 0} className="text-xs bg-gray-800 text-white px-3 py-2 rounded-lg shadow font-bold disabled:bg-gray-300 disabled:cursor-not-allowed hover:bg-gray-900 transition-colors flex items-center ml-auto">
-                        <Printer size={14} className="mr-1"/> พิมพ์ Report
+                        <Printer size={14} className="mr-1"/> พิมพ์ตารางงาน (PDF)
                      </button>
                   </div>
                </div>
@@ -655,7 +648,7 @@ export default function App() {
                         if (s.type === 'trial') {
                            const clientName = clients.find(c => c.id === s.clientId)?.name;
                            const partObj = parts.find(p => p.id === s.partId);
-                           const partCode = partObj ? partObj.code.split('\n')[0] : null;
+                           const partCode = partObj && partObj.code ? String(partObj.code).split('\n')[0] : null;
 
                            if (clientName) extraDetails.push(clientName);
                            if (partCode) extraDetails.push(`Mold: ${partCode}`);
@@ -746,7 +739,7 @@ export default function App() {
             </div>
             <div className="text-right">
                <p className="text-sm font-bold text-gray-800">Month: {monthNamesThai[currentMonth]} {currentYear + 543}</p>
-               <p className="text-xs text-gray-500 mt-1">Print Date: {formatThaiDate(new Date().toISOString().split('T')[0])}</p>
+               <p className="text-xs text-gray-500 mt-1">Print Date: {formatThaiDate((new Date().toISOString() || '').split('T')[0])}</p>
             </div>
           </div>
 
@@ -770,7 +763,7 @@ export default function App() {
                 if (s.type === 'trial') {
                    const clientName = clients.find(c => c.id === s.clientId)?.name;
                    const partObj = parts.find(p => p.id === s.partId);
-                   const partCode = partObj ? partObj.code.split('\n')[0] : null;
+                   const partCode = partObj && partObj.code ? String(partObj.code).split('\n')[0] : null;
 
                    if (clientName) extraDetails.push(`Client: ${clientName}`);
                    if (partCode) extraDetails.push(`Mold: ${partCode}`);
@@ -1175,7 +1168,7 @@ export default function App() {
 
   const TrialsView = () => {
     const partTrials = trials.filter(t => t.partId === path.part.id);
-    const headerTitleCode = path.part.code.split('\n')[0];
+    const headerTitleCode = (path.part.code || '').split('\n')[0];
 
     const inHouseTrials = partTrials.filter(t => t.trialLocation !== 'outsource');
     const outsourceTrials = partTrials.filter(t => t.trialLocation === 'outsource');
@@ -1192,7 +1185,7 @@ export default function App() {
     return (
       <div className="space-y-4">
         <div className="flex justify-between items-center flex-wrap gap-2">
-          <h2 className="text-xl font-bold flex items-center"><Activity className="mr-2" /> ประวัติ Trial: {headerTitleCode}{path.part.code.includes('\n')?'...':''}</h2>
+          <h2 className="text-xl font-bold flex items-center"><Activity className="mr-2" /> ประวัติ Trial: {headerTitleCode}{(path.part.code||'').includes('\n')?'...':''}</h2>
           <button onClick={() => {
             setSelectedTrialIds(partTrials.map(t => t.id));
             setView('report');
@@ -1206,7 +1199,7 @@ export default function App() {
             <div className="bg-white p-8 rounded-lg shadow text-center text-gray-500">ยังไม่มีประวัติการ Trial สำหรับแม่พิมพ์นี้</div>
           ) : (
             partTrials.map((t, index) => {
-              const selectedCond = (t.conditions || []).find(c => c.customerResult === 'ok' || c.customerResult === 'temporary') || (t.conditions || [])[0];
+              const selectedCond = (t.conditions || []).find(c => c.customerResult === 'ok' || c.customerResult === 'temporary') || (t.conditions || [])[0] || {};
 
               return (
                 <div key={t.id} className="bg-white p-4 rounded-xl shadow border border-gray-100 relative group flex flex-col md:flex-row gap-4">
@@ -1398,7 +1391,7 @@ export default function App() {
             </div>
           </div>
           <div className="text-gray-500 mt-1 flex flex-col md:flex-row justify-between">
-            <span className="whitespace-pre-wrap font-semibold leading-tight">{path.part.code} <br className="hidden md:block"/> {path.part.name}</span>
+            <span className="whitespace-pre-wrap font-semibold leading-tight">{path.part.code || '-'} <br className="hidden md:block"/> {path.part.name}</span>
             <div className="font-semibold text-blue-600 mt-2 md:mt-0 text-right text-xs">
               {(path.part.cavities || []).map(cav => (
                  <span key={cav.id}>STD {cav.name}: {cav.std} +{cav.plus||0}/-{cav.minus||0}g<br/></span>
@@ -1845,7 +1838,7 @@ export default function App() {
             {partTrialsToReport.map((t, index) => {
               const tableId = `report-table-${t.id}`;
               const containerId = `report-container-${t.id}`;
-              const exportName = `MEETING_PROBLEM_${path.part.code.split('\n')[0]}_TRIAL-${t.trialNo}`;
+              const exportName = `MEETING_PROBLEM_${(path.part.code || '').split('\n')[0] || 'Unknown'}_TRIAL-${t.trialNo}`;
 
               return (
                 <div key={t.id} className={`avoid-break ${index !== 0 ? 'page-break-before mt-8' : ''}`}>
@@ -1942,7 +1935,7 @@ export default function App() {
                           {/* Row 6 */}
                           <tr>
                             <td className="font-bold align-top bg-gray-100 print-exact-color">Part No. :</td>
-                            <td className="whitespace-pre-wrap font-bold text-blue-900">{path.part.code}</td>
+                            <td className="whitespace-pre-wrap font-bold text-blue-900">{path.part.code || '-'}</td>
                             <td colSpan="2" className="font-bold text-center bg-gray-200 print-exact-color">Conditions Summary</td>
                             <td className="font-bold text-center bg-gray-100 print-exact-color w-[15%]">Issued by</td>
                             <td className="font-bold text-center bg-gray-100 print-exact-color w-[15%]">Checked</td>
@@ -1951,7 +1944,7 @@ export default function App() {
                           {/* Row 7 */}
                           <tr>
                             <td className="font-bold align-top bg-gray-100 print-exact-color">Part Name. :</td>
-                            <td className="whitespace-pre-wrap font-bold text-blue-900">{path.part.name}</td>
+                            <td className="whitespace-pre-wrap font-bold text-blue-900">{path.part.name || '-'}</td>
                             <td colSpan="2" rowSpan="2" className="align-top leading-relaxed text-[10px]">
                                {/* Conditions display */}
                                {(t.conditions || []).map((c, i) => (
@@ -1972,7 +1965,7 @@ export default function App() {
                           {/* Row 8 */}
                           <tr>
                             <td className="font-bold bg-gray-100 print-exact-color">Material :</td>
-                            <td>{path.part.material}</td>
+                            <td>{path.part.material || '-'}</td>
                             <td className="text-center font-bold">Good: {t.goodParts || '0'}</td>
                             <td className="text-center font-bold">NG: {t.ngParts || '0'}</td>
                           </tr>
@@ -2095,20 +2088,15 @@ export default function App() {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto p-4 py-6 print:p-0 print:m-0 print:max-w-none print:w-full no-print">
-        {activeTab === 'projects' && view === 'clients' ? ClientListView() : null}
-        {activeTab === 'projects' && view === 'models' ? ModelsView() : null}
-        {activeTab === 'projects' && view === 'parts' ? PartsView() : null}
-        {activeTab === 'projects' && view === 'trials' ? TrialsView() : null}
-        {activeTab === 'projects' && view === 'trial_form' ? TrialForm() : null}
+      <main className="max-w-4xl mx-auto p-4 py-6 print:p-0 print:m-0 print:max-w-none print:w-full">
+        {activeTab === 'projects' && view === 'clients' ? <div className="no-print">{ClientListView()}</div> : null}
+        {activeTab === 'projects' && view === 'models' ? <div className="no-print">{ModelsView()}</div> : null}
+        {activeTab === 'projects' && view === 'parts' ? <div className="no-print">{PartsView()}</div> : null}
+        {activeTab === 'projects' && view === 'trials' ? <div className="no-print">{TrialsView()}</div> : null}
+        {activeTab === 'projects' && view === 'trial_form' ? <div className="no-print">{TrialForm()}</div> : null}
         {activeTab === 'projects' && view === 'report' ? ReportView() : null}
         {activeTab === 'calendar' ? CalendarView() : null}
       </main>
-
-      {/* พื้นที่สำหรับ Print อย่างเดียว เพื่อป้องกันปัญหา DOM ซ้อนทับ */}
-      <div className="print-only">
-         {activeTab === 'projects' && view === 'report' ? ReportView() : null}
-      </div>
 
       {zoomedImg && (
         <div 
