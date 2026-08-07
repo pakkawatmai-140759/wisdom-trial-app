@@ -744,7 +744,7 @@ export default function App() {
           </div>
 
           {includeCalendarInReport && (
-             <div className="mb-8 avoid-break">
+             <div className="mb-8">
                 <h3 className="text-lg font-bold text-gray-800 mb-2 border-b-2 border-gray-200 pb-1">ภาพรวมปฏิทินประจำเดือน (Monthly Overview)</h3>
                 <div className="flex flex-wrap gap-3 text-[10px] font-semibold text-gray-600 mb-2">
                    <span className="flex items-center"><div className="w-3 h-3 bg-[#fff3c4] border border-[#fce988] rounded mr-1"></div> งานฉีด / Trial</span>
@@ -1787,7 +1787,6 @@ export default function App() {
   const ReportView = () => {
     if (!path.part) return null;
     const allPartTrials = trials.filter(t => t.partId === path.part.id);
-    const [selectedTrialIds, setSelectedTrialIds] = useState(allPartTrials.map(t => t.id));
     const partTrialsToReport = allPartTrials.filter(t => selectedTrialIds.includes(t.id));
 
     const handleToggle = (id) => {
@@ -2098,12 +2097,13 @@ export default function App() {
         {activeTab === 'projects' && view === 'trials' ? <div className="no-print">{TrialsView()}</div> : null}
         {activeTab === 'projects' && view === 'trial_form' ? <div className="no-print">{TrialForm()}</div> : null}
         {activeTab === 'projects' && view === 'report' ? ReportView() : null}
-        {activeTab === 'calendar' ? CalendarView() : null}
+        {activeTab === 'calendar' ? <div className="no-print">{CalendarView()}</div> : null}
       </main>
 
       {/* พื้นที่สำหรับ Print อย่างเดียว เพื่อป้องกันปัญหา DOM ซ้อนทับ */}
       <div className="print-only">
          {activeTab === 'projects' && view === 'report' ? ReportView() : null}
+         {activeTab === 'calendar' ? CalendarView() : null}
       </div>
 
       {zoomedImg && (
