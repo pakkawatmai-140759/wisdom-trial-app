@@ -83,7 +83,7 @@ const printStyles = `
 `;
 
 const formatThaiDate = (dateStr) => {
-  if (!dateStr) return '-';
+  if (!dateStr || typeof dateStr !== 'string') return '-';
   const parts = dateStr.split('-');
   if (parts.length !== 3) return dateStr;
   const year = parseInt(parts[0], 10) + 543;
@@ -511,7 +511,7 @@ export default function App() {
                        <div className="flex gap-3 flex-wrap">
                           {(bookingData.proofImages || []).map(img => (
                              <div key={img.id} className="relative group w-24 h-24 border-2 border-gray-200 rounded-lg bg-gray-50">
-                                <button type="button" onClick={() => setBookingData(prev => ({...prev, proofImages: prev.proofImages.filter(x => x.id !== img.id)}))} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 z-10 hidden group-hover:block shadow-md"><X size={12}/></button>
+                                <button type="button" onClick={() => setBookingData(prev => ({...prev, proofImages: (prev.proofImages || []).filter(x => x.id !== img.id)}))} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 z-10 hidden group-hover:block shadow-md"><X size={12}/></button>
                                 <img src={img.img} className="w-full h-full object-cover rounded-lg cursor-pointer hover:opacity-80" onClick={(e) => {e.stopPropagation(); setZoomedImg(img.img);}} alt="proof" />
                              </div>
                           ))}
@@ -648,7 +648,7 @@ export default function App() {
                         if (s.type === 'trial') {
                            const clientName = clients.find(c => c.id === s.clientId)?.name;
                            const partObj = parts.find(p => p.id === s.partId);
-                           const partCode = partObj && partObj.code ? String(partObj.code).split('\n')[0] : null;
+                           const partCode = partObj?.code ? String(partObj.code).split('\n')[0] : null;
 
                            if (clientName) extraDetails.push(clientName);
                            if (partCode) extraDetails.push(`Mold: ${partCode}`);
@@ -693,7 +693,7 @@ export default function App() {
                                        <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center justify-center"><CheckCircle2 size={12} className="mr-1"/> เสร็จสิ้น</span>
                                        {(s.proofImages || []).length > 0 && (
                                           <div className="flex gap-1 justify-center">
-                                             {s.proofImages.map(img => (
+                                             {(s.proofImages || []).map(img => (
                                                 <img key={img.id} src={img.img} className="w-8 h-8 object-cover rounded shadow-sm border border-gray-300 cursor-pointer hover:scale-110 transition-transform" onClick={(e) => {e.stopPropagation(); setZoomedImg(img.img);}} alt="proof" />
                                              ))}
                                           </div>
@@ -753,7 +753,6 @@ export default function App() {
                    <span className="flex items-center"><div className="w-3 h-3 bg-[#a3f0b6] rounded mr-1"></div> นัดประชุม (Meeting)</span>
                 </div>
                 {renderCalendarGrid()}
-                <div className="page-break-after"></div>
              </div>
           )}
 
@@ -763,7 +762,7 @@ export default function App() {
                 if (s.type === 'trial') {
                    const clientName = clients.find(c => c.id === s.clientId)?.name;
                    const partObj = parts.find(p => p.id === s.partId);
-                   const partCode = partObj && partObj.code ? String(partObj.code).split('\n')[0] : null;
+                   const partCode = partObj?.code ? String(partObj.code).split('\n')[0] : null;
 
                    if (clientName) extraDetails.push(`Client: ${clientName}`);
                    if (partCode) extraDetails.push(`Mold: ${partCode}`);
@@ -807,7 +806,7 @@ export default function App() {
                           <div className="mt-2 pt-2 border-t border-gray-200">
                              <span className="font-bold text-gray-500 block mb-2 text-[11px]">รูปถ่ายหลักฐาน (Proof of Completion):</span>
                              <div className="flex gap-2">
-                                {s.proofImages.map(img => (
+                                {(s.proofImages || []).map(img => (
                                    <img key={img.id} src={img.img} className="w-32 h-32 object-cover border-2 border-gray-300 rounded shadow-sm" alt="proof" />
                                 ))}
                              </div>
@@ -866,10 +865,11 @@ export default function App() {
   };
 
   const ModelsView = () => {
+    if (!path.client) return null;
     const clientModels = models.filter(m => m.clientId === path.client.id);
     return (
       <div className="space-y-4">
-        <h2 className="text-xl font-bold flex items-center"><Settings className="mr-2" /> โมเดลของ: {path.client.name}</h2>
+        <h2 className="text-xl font-bold flex items-center"><Settings className="mr-2" /> โมเดลของ: {path.client?.name}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {clientModels.map(m => (
             <div key={m.id} className="bg-white p-4 rounded-xl shadow border-2 border-transparent flex justify-between items-center group">
@@ -900,6 +900,7 @@ export default function App() {
   };
 
   const PartsView = () => {
+    if (!path.model) return null;
     const modelParts = parts.filter(p => p.modelId === path.model.id);
 
     const handleSavePart = () => {
@@ -1109,7 +1110,7 @@ export default function App() {
 
     return (
       <div className="space-y-4">
-        <h2 className="text-xl font-bold flex items-center"><Box className="mr-2" /> แม่พิมพ์ของโมเดล: {path.model.name}</h2>
+        <h2 className="text-xl font-bold flex items-center"><Box className="mr-2" /> แม่พิมพ์ของโมเดล: {path.model?.name}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {modelParts.map(p => (
             editingId === p.id ? <React.Fragment key={p.id}>{PartForm()}</React.Fragment> :
@@ -1167,8 +1168,9 @@ export default function App() {
   };
 
   const TrialsView = () => {
+    if (!path.part) return null;
     const partTrials = trials.filter(t => t.partId === path.part.id);
-    const headerTitleCode = (path.part.code || '').split('\n')[0];
+    const headerTitleCode = (path.part?.code || '').split('\n')[0];
 
     const inHouseTrials = partTrials.filter(t => t.trialLocation !== 'outsource');
     const outsourceTrials = partTrials.filter(t => t.trialLocation === 'outsource');
@@ -1185,7 +1187,7 @@ export default function App() {
     return (
       <div className="space-y-4">
         <div className="flex justify-between items-center flex-wrap gap-2">
-          <h2 className="text-xl font-bold flex items-center"><Activity className="mr-2" /> ประวัติ Trial: {headerTitleCode}{(path.part.code||'').includes('\n')?'...':''}</h2>
+          <h2 className="text-xl font-bold flex items-center"><Activity className="mr-2" /> ประวัติ Trial: {headerTitleCode}{(path.part?.code||'').includes('\n')?'...':''}</h2>
           <button onClick={() => {
             setSelectedTrialIds(partTrials.map(t => t.id));
             setView('report');
@@ -1230,13 +1232,13 @@ export default function App() {
                       )}
 
                       <span className="text-gray-500 text-sm">วันที่: {formatThaiDate(t.date)}</span>
-                      <span className="ml-auto text-sm text-gray-500">PE: {(t.signatures || [])[0] ? (t.signatures || [])[0].name : '-'}</span>
+                      <span className="ml-auto text-sm text-gray-500">PE: {(t.signatures || [])[0]?.name || '-'}</span>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 text-sm mb-2 bg-gray-50 p-2 rounded">
                       
                       <div className="space-y-0.5">
-                        {(path.part.cavities || []).map(cav => {
+                        {(path.part?.cavities || []).map(cav => {
                            const actVal = selectedCond?.actWeights?.[cav.id] || '';
                            const isNg = checkNgByTolerance(actVal, cav.std, cav.plus, cav.minus);
                            return (
@@ -1247,7 +1249,7 @@ export default function App() {
                         })}
                       </div>
 
-                      <div className={checkNgByTolerance(selectedCond?.actCycleTime, path.part.stdCycleTime, path.part.stdCycleTimeTol, path.part.stdCycleTimeTol) ? "text-red-600" : "text-green-600"}>
+                      <div className={checkNgByTolerance(selectedCond?.actCycleTime, path.part?.stdCycleTime, path.part?.stdCycleTimeTol, path.part?.stdCycleTimeTol) ? "text-red-600" : "text-green-600"}>
                         <strong>C/T ACT:</strong> {selectedCond?.actCycleTime || '-'} sec
                       </div>
                     </div>
@@ -1322,7 +1324,7 @@ export default function App() {
   };
 
   const TrialForm = () => {
-    if (!formData) return null;
+    if (!path.part || !formData) return null;
 
     const isEditing = !!editingTrialId;
 
@@ -1366,7 +1368,7 @@ export default function App() {
           ...formData,
           conditions: (formData.conditions || []).map(c => {
              if (c.id === condId) {
-                return { ...c, actWeights: { ...(c.actWeights || {}), [cavId]: value } };
+                 return { ...c, actWeights: { ...(c.actWeights || {}), [cavId]: value } };
              }
              return c;
           })
@@ -1391,17 +1393,17 @@ export default function App() {
             </div>
           </div>
           <div className="text-gray-500 mt-1 flex flex-col md:flex-row justify-between">
-            <span className="whitespace-pre-wrap font-semibold leading-tight">{path.part.code || '-'} <br className="hidden md:block"/> {path.part.name}</span>
+            <span className="whitespace-pre-wrap font-semibold leading-tight">{path.part?.code || '-'} <br className="hidden md:block"/> {path.part?.name}</span>
             <div className="font-semibold text-blue-600 mt-2 md:mt-0 text-right text-xs">
-              {(path.part.cavities || []).map(cav => (
+              {(path.part?.cavities || []).map(cav => (
                  <span key={cav.id}>STD {cav.name}: {cav.std} +{cav.plus||0}/-{cav.minus||0}g<br/></span>
               ))}
-              <span>C/T: {path.part.stdCycleTime}±{path.part.stdCycleTimeTol || 0}s</span>
+              <span>C/T: {path.part?.stdCycleTime}±{path.part?.stdCycleTimeTol || 0}s</span>
             </div>
           </div>
         </div>
 
-        {path.part.componentsList && path.part.componentsList.length > 0 && (
+        {path.part?.componentsList && path.part.componentsList.length > 0 && (
            <div className="bg-orange-50 border border-orange-300 p-4 rounded-xl shadow-sm mb-6">
               <h4 className="font-bold text-orange-800 flex items-center mb-3 text-lg"><AlertCircle size={20} className="mr-2"/> จุดที่ต้องระวัง: มีชิ้นส่วนประกอบ (Insert / Component)</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1630,7 +1632,7 @@ export default function App() {
                      </div>
 
                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
-                        {(path.part.cavities || []).map(cav => {
+                        {(path.part?.cavities || []).map(cav => {
                            const actVal = cond.actWeights?.[cav.id] || '';
                            const isNg = checkNgByTolerance(actVal, cav.std, cav.plus, cav.minus);
                            return (
@@ -1783,6 +1785,7 @@ export default function App() {
   };
 
   const ReportView = () => {
+    if (!path.part) return null;
     const allPartTrials = trials.filter(t => t.partId === path.part.id);
     const [selectedTrialIds, setSelectedTrialIds] = useState(allPartTrials.map(t => t.id));
     const partTrialsToReport = allPartTrials.filter(t => selectedTrialIds.includes(t.id));
@@ -1838,7 +1841,7 @@ export default function App() {
             {partTrialsToReport.map((t, index) => {
               const tableId = `report-table-${t.id}`;
               const containerId = `report-container-${t.id}`;
-              const exportName = `MEETING_PROBLEM_${(path.part.code || '').split('\n')[0] || 'Unknown'}_TRIAL-${t.trialNo}`;
+              const exportName = `MEETING_PROBLEM_${(path.part?.code || '').split('\n')[0] || 'Unknown'}_TRIAL-${t.trialNo}`;
 
               return (
                 <div key={t.id} className={`avoid-break ${index !== 0 ? 'page-break-before mt-8' : ''}`}>
@@ -1899,7 +1902,7 @@ export default function App() {
                           {/* Row 2 */}
                           <tr>
                             <td className="font-bold bg-gray-100 print-exact-color w-[15%]">Customer :</td>
-                            <td className="w-[20%]">{path.client.name}</td>
+                            <td className="w-[20%]">{path.client?.name || '-'}</td>
                             <td className="font-bold bg-gray-100 print-exact-color w-[15%]">DATE :</td>
                             <td className="w-[20%]">{formatThaiDate(t.date)}</td>
                             <td colSpan="2" className="font-bold text-center bg-gray-200 print-exact-color w-[30%]">MEETING MEMBER</td>
@@ -1908,7 +1911,7 @@ export default function App() {
                           {/* Row 3 */}
                           <tr>
                             <td className="font-bold bg-gray-100 print-exact-color">Model :</td>
-                            <td>{path.model.name}</td>
+                            <td>{path.model?.name || '-'}</td>
                             <td className="font-bold bg-gray-100 print-exact-color">TRY :</td>
                             <td>#{t.trialNo} {t.trialLocation === 'outsource' ? `[${t.outsourceCompany}]` : ''}</td>
                             <td colSpan="2" className="text-center font-bold">WDA / Customer</td>
@@ -1917,7 +1920,7 @@ export default function App() {
                           {/* Row 4 */}
                           <tr>
                             <td className="font-bold bg-gray-100 print-exact-color">Mold Name :</td>
-                            <td>{path.part.components || '-'}</td>
+                            <td>{path.part?.components || '-'}</td>
                             <td className="font-bold bg-gray-100 print-exact-color">Level Part :</td>
                             <td className="font-bold">{t.limitSampleOk ? 'APPROVED' : 'PENDING'}</td>
                             <td colSpan="2" className="text-center"></td>
@@ -1926,16 +1929,16 @@ export default function App() {
                           {/* Row 5 */}
                           <tr>
                             <td className="font-bold bg-gray-100 print-exact-color">Mold Maker :</td>
-                            <td>{(t.signatures || [])[1] ? (t.signatures || [])[1].name : '-'}</td>
+                            <td>{(t.signatures || [])[1]?.name || '-'}</td>
                             <td className="font-bold bg-gray-100 print-exact-color">Cavity QTY :</td>
-                            <td>{path.part.cavity}</td>
+                            <td>{path.part?.cavity || '-'}</td>
                             <td colSpan="2" className="text-center"></td>
                           </tr>
 
                           {/* Row 6 */}
                           <tr>
                             <td className="font-bold align-top bg-gray-100 print-exact-color">Part No. :</td>
-                            <td className="whitespace-pre-wrap font-bold text-blue-900">{path.part.code || '-'}</td>
+                            <td className="whitespace-pre-wrap font-bold text-blue-900">{path.part?.code || '-'}</td>
                             <td colSpan="2" className="font-bold text-center bg-gray-200 print-exact-color">Conditions Summary</td>
                             <td className="font-bold text-center bg-gray-100 print-exact-color w-[15%]">Issued by</td>
                             <td className="font-bold text-center bg-gray-100 print-exact-color w-[15%]">Checked</td>
@@ -1944,13 +1947,13 @@ export default function App() {
                           {/* Row 7 */}
                           <tr>
                             <td className="font-bold align-top bg-gray-100 print-exact-color">Part Name. :</td>
-                            <td className="whitespace-pre-wrap font-bold text-blue-900">{path.part.name || '-'}</td>
+                            <td className="whitespace-pre-wrap font-bold text-blue-900">{path.part?.name || '-'}</td>
                             <td colSpan="2" rowSpan="2" className="align-top leading-relaxed text-[10px]">
                                {/* Conditions display */}
                                {(t.conditions || []).map((c, i) => (
                                  <div key={i} className="mb-1 border-b border-gray-300 border-dashed pb-1 last:border-0">
                                    <strong>{c.name}:</strong> C/T {c.actCycleTime||'-'}s |
-                                   {(path.part.cavities || []).map(cav => {
+                                   {(path.part?.cavities || []).map(cav => {
                                       const act = c.actWeights?.[cav.id];
                                       return ` ${cav.name}: ${act||'-'}g`;
                                    }).join(' |')}
@@ -1958,14 +1961,14 @@ export default function App() {
                                  </div>
                                ))}
                             </td>
-                            <td className="text-center align-middle font-[cursive] text-blue-800 text-[14px]">{(t.signatures || [])[0] ? (t.signatures || [])[0].name : ''}</td>
-                            <td className="text-center align-middle font-[cursive] text-blue-800 text-[14px]">{(t.signatures || [])[2] ? (t.signatures || [])[2].name : ''}</td>
+                            <td className="text-center align-middle font-[cursive] text-blue-800 text-[14px]">{(t.signatures || [])[0]?.name || ''}</td>
+                            <td className="text-center align-middle font-[cursive] text-blue-800 text-[14px]">{(t.signatures || [])[2]?.name || ''}</td>
                           </tr>
 
                           {/* Row 8 */}
                           <tr>
                             <td className="font-bold bg-gray-100 print-exact-color">Material :</td>
-                            <td>{path.part.material || '-'}</td>
+                            <td>{path.part?.material || '-'}</td>
                             <td className="text-center font-bold">Good: {t.goodParts || '0'}</td>
                             <td className="text-center font-bold">NG: {t.ngParts || '0'}</td>
                           </tr>
@@ -2097,6 +2100,11 @@ export default function App() {
         {activeTab === 'projects' && view === 'report' ? ReportView() : null}
         {activeTab === 'calendar' ? CalendarView() : null}
       </main>
+
+      {/* พื้นที่สำหรับ Print อย่างเดียว เพื่อป้องกันปัญหา DOM ซ้อนทับ */}
+      <div className="print-only">
+         {activeTab === 'projects' && view === 'report' ? ReportView() : null}
+      </div>
 
       {zoomedImg && (
         <div 
