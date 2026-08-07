@@ -247,7 +247,6 @@ export default function App() {
     images: { setupClose: null, setupOpen: null, cav: null, core: null, coreEjector: null, resin: null, machine: null, packing: null },
     equipmentImages: [], monitorImages: [], atmosphereImages: [], meetingImages: [],
     partProblems: [], moldProblems: [],
-    // Added actGateWeight here
     conditions: [{ id: Date.now() + Math.random(), name: 'Condition #1', actWeights: {}, actGateWeight: '', actCycleTime: '', note: '', customerResult: 'pending' }],
     goodParts: '', ngParts: '', reqModifyMold: false, reqRetrial: false, reqJig: false,
     makerAction: '', deliveryDate: '', nextTrialDate: '', limitSampleOk: false, remarks: '',
@@ -1637,12 +1636,13 @@ export default function App() {
                         <input type="text" className="font-bold text-blue-900 bg-transparent border-b border-dashed border-gray-400 focus:outline-none focus:border-blue-600 text-sm w-full" value={cond.name} onChange={(e) => updateCondition(cond.id, 'name', e.target.value)} placeholder="ชื่อ Condition..." />
                      </div>
 
-                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
+                     {/* ย้าย Gate/Runner ขึ้นมาไว้บรรทัดเดียวกับน้ำหนัก Cavity */}
+                     <div className="flex flex-wrap gap-3 mb-3 items-end border-b border-gray-200 pb-3">
                         {(path.part?.cavities || []).map(cav => {
                            const actVal = cond.actWeights?.[cav.id] || '';
                            const isNg = checkNgByTolerance(actVal, cav.std, cav.plus, cav.minus);
                            return (
-                              <div key={cav.id} className={`p-2 rounded border ${isNg ? 'bg-red-50 border-red-300' : 'bg-white'}`}>
+                              <div key={cav.id} className={`p-2 rounded border flex-1 min-w-[120px] ${isNg ? 'bg-red-50 border-red-300' : 'bg-white'}`}>
                                 <label className="block text-xs font-semibold text-gray-700 mb-1">ACT. Weight {cav.name} (g)</label>
                                 <input 
                                    type="number" 
@@ -1650,22 +1650,27 @@ export default function App() {
                                    className={`w-full border p-1.5 text-sm rounded outline-none font-semibold ${isNg ? 'text-red-600 border-red-400 bg-white' : 'text-gray-800'}`} 
                                    value={actVal} 
                                    onChange={e => updateActWeight(cond.id, cav.id, e.target.value)} 
-                                   placeholder={`ค่าน้ำหนัก ${cav.name}...`} 
+                                   placeholder={`น้ำหนัก ${cav.name}...`} 
                                 />
                               </div>
                            )
                         })}
+                        <div className="p-2 rounded border bg-blue-50 border-blue-200 flex-1 min-w-[120px]">
+                           <label className="block text-[11px] font-semibold text-blue-800 mb-1">Gate / Runner (g)</label>
+                           <input 
+                               type="number" 
+                               step="0.001" 
+                               className="w-full border border-blue-300 p-1.5 text-sm rounded bg-white outline-none focus:ring-2 text-blue-700 font-semibold" 
+                               value={cond.actGateWeight || ''} 
+                               onChange={e => updateCondition(cond.id, 'actGateWeight', e.target.value)} 
+                               placeholder="เศษ Runner..." 
+                           />
+                        </div>
                      </div>
 
-                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                       <div>
-                          <label className="block text-[11px] font-semibold text-gray-600">Actual Cycle Time (s)</label>
-                          <input type="number" className="w-full border p-1.5 text-sm rounded mt-0.5 bg-white outline-none focus:ring-2" value={cond.actCycleTime || ''} onChange={e => updateCondition(cond.id, 'actCycleTime', e.target.value)} placeholder="ค่า Cycle Time จริง..." />
-                       </div>
-                       <div>
-                          <label className="block text-[11px] font-semibold text-gray-600">น้ำหนัก Gate / Runner (g)</label>
-                          <input type="number" step="0.001" className="w-full border p-1.5 text-sm rounded mt-0.5 bg-white outline-none focus:ring-2 text-blue-700 font-semibold" value={cond.actGateWeight || ''} onChange={e => updateCondition(cond.id, 'actGateWeight', e.target.value)} placeholder="น้ำหนัก Gate/Runner..." />
-                       </div>
+                     <div className="mb-2">
+                        <label className="block text-[11px] font-semibold text-gray-600">Actual Cycle Time (s)</label>
+                        <input type="number" className="w-full border p-1.5 text-sm rounded mt-0.5 bg-white outline-none focus:ring-2" value={cond.actCycleTime || ''} onChange={e => updateCondition(cond.id, 'actCycleTime', e.target.value)} placeholder="ค่า Cycle Time จริง..." />
                      </div>
 
                      <input type="text" className="w-full border p-1.5 text-xs rounded bg-white mb-3 outline-none focus:ring-2" placeholder="เงื่อนไขปรับจูนเพิ่มเติม (เช่น Temp, Injection Speed...)" value={cond.note || ''} onChange={e => updateCondition(cond.id, 'note', e.target.value)} />
