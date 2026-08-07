@@ -208,6 +208,9 @@ export default function App() {
 
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+  
+  // === ย้ายสถานะการโหลดมาไว้ระดับสูงสุด (Top Level) ป้องกันบัคจอขาว ===
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     const initDB = async () => {
@@ -1341,7 +1344,6 @@ export default function App() {
     if (!path.part || !formData) return null;
 
     const isEditing = !!editingTrialId;
-    const [isSaving, setIsSaving] = useState(false);
 
     const handleSave = async (statusType) => {
       setIsSaving(true);
@@ -1654,7 +1656,6 @@ export default function App() {
                         <input type="text" className="font-bold text-blue-900 bg-transparent border-b border-dashed border-gray-400 focus:outline-none focus:border-blue-600 text-sm w-full" value={cond.name} onChange={(e) => updateCondition(cond.id, 'name', e.target.value)} placeholder="ชื่อ Condition..." />
                      </div>
 
-                     {/* ย้าย Gate/Runner ขึ้นมาไว้บรรทัดเดียวกับน้ำหนัก Cavity */}
                      <div className="flex flex-wrap gap-3 mb-3 items-end border-b border-gray-200 pb-3">
                         {(path.part?.cavities || []).map(cav => {
                            const actVal = cond.actWeights?.[cav.id] || '';
@@ -1813,274 +1814,6 @@ export default function App() {
             <button disabled={isSaving} onClick={() => handleSave('completed')} className="px-2 py-2.5 w-2/5 bg-blue-600 text-white font-bold rounded-lg shadow hover:bg-blue-700 flex justify-center items-center text-xs disabled:opacity-50">
                <Check size={14} className="mr-1"/> {isSaving ? 'กำลังบันทึก...' : 'ปิดงาน'}
             </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const ReportView = () => {
-    if (!path.part) return null;
-    const allPartTrials = trials.filter(t => t.partId === path.part.id);
-    const [selectedTrialIds, setSelectedTrialIds] = useState(allPartTrials.map(t => t.id));
-    const partTrialsToReport = allPartTrials.filter(t => selectedTrialIds.includes(t.id));
-
-    const handleToggle = (id) => {
-      if (selectedTrialIds.includes(id)) {
-        setSelectedTrialIds(selectedTrialIds.filter(tid => tid !== id));
-      } else {
-        setSelectedTrialIds([...selectedTrialIds, id].sort((a,b) => {
-          return allPartTrials.find(t=>t.id===a).trialNo - allPartTrials.find(t=>t.id===b).trialNo;
-        }));
-      }
-    };
-
-    return (
-      <div className="space-y-4">
-        
-        <div className="no-print bg-white p-4 rounded-lg shadow border-t-4 border-blue-500">
-          <div className="flex justify-between items-center mb-3 border-b pb-2">
-             <h3 className="font-bold text-gray-700 flex items-center"><Printer className="mr-2 w-5 h-5"/> เลือก Trial ที่ต้องการพิมพ์ Report:</h3>
-             <div className="flex gap-4">
-                <button onClick={() => setSelectedTrialIds(allPartTrials.map(t => t.id))} className="text-sm text-blue-600 font-semibold hover:underline">เลือกทั้งหมด</button>
-                <button onClick={() => setSelectedTrialIds([])} className="text-sm text-gray-500 font-semibold hover:underline">ล้างทั้งหมด</button>
-             </div>
-          </div>
-          {allPartTrials.length === 0 ? (
-             <p className="text-sm text-gray-500">ยังไม่มีประวัติการ Trial</p>
-          ) : (
-             <div className="flex flex-wrap gap-3 mb-4">
-               {allPartTrials.map(t => (
-                  <label key={t.id} className={`flex items-center gap-2 cursor-pointer p-2 rounded border transition-colors ${selectedTrialIds.includes(t.id) ? 'bg-blue-50 border-blue-300 shadow-sm' : 'bg-gray-50 border-gray-200'}`}>
-                    <input type="checkbox" checked={selectedTrialIds.includes(t.id)} onChange={() => handleToggle(t.id)} className="w-4 h-4 text-blue-600 rounded" />
-                    <span className={`text-sm ${selectedTrialIds.includes(t.id) ? 'text-blue-900 font-semibold' : 'text-gray-500'}`}>
-                       {t.trialLocation === 'outsource' ? 'Outsource' : 'In-house'} Trial #{t.trialNo}
-                       {t.isSpecialRequest && <span className="ml-1 text-yellow-600">⭐</span>}
-                    </span>
-                  </label>
-               ))}
-             </div>
-          )}
-          
-          <div className="flex justify-end pt-2">
-            <button onClick={() => window.print()} disabled={partTrialsToReport.length === 0} className={`px-6 py-2 rounded-lg flex items-center shadow font-bold text-white transition-colors ${partTrialsToReport.length > 0 ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-400 cursor-not-allowed'}`}>
-              <Printer className="w-5 h-5 mr-2" /> พิมพ์ Report (PDF)
-            </button>
-          </div>
-        </div>
-
-        <div className="bg-white mx-auto font-sans w-full max-w-none pb-12">
-          {partTrialsToReport.length === 0 && <p className="text-center text-gray-400 py-10 no-print">--- กรุณาเลือก Trial ที่ต้องการดูจากแผงควบคุมด้านบน ---</p>}
-
-          <div className="space-y-12">
-            {partTrialsToReport.map((t, index) => {
-              const tableId = `report-table-${t.id}`;
-              const containerId = `report-container-${t.id}`;
-              const exportName = `MEETING_PROBLEM_${(path.part?.code || '').split('\n')[0] || 'Unknown'}_TRIAL-${t.trialNo}`;
-
-              return (
-                <div key={t.id} className={`avoid-break ${index !== 0 ? 'page-break-before mt-8' : ''}`}>
-                  
-                  {/* แถบปุ่มสำหรับ Export แต่ละฟอร์ม (ซ่อนตอน Print) */}
-                  <div className="flex justify-end gap-2 mb-2 no-print">
-                     <button onClick={() => handleExportPNG(containerId, exportName)} className="flex items-center gap-1 bg-indigo-600 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-indigo-700 shadow-sm">
-                        <Image size={14}/> ดาวน์โหลด PNG
-                     </button>
-                     <button onClick={() => handleExportExcel(tableId, exportName)} className="flex items-center gap-1 bg-green-600 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-green-700 shadow-sm">
-                        <Download size={14}/> ดาวน์โหลด Excel
-                     </button>
-                  </div>
-
-                  {/* พื้นที่ที่จะถูกปริ้น / Export */}
-                  <div id={containerId} className="bg-white p-2 border border-gray-300 md:border-none print:border-none">
-                     <table id={tableId} className="w-full border-collapse text-[11px] [&_td]:border [&_td]:border-black [&_td]:p-1.5 bg-white print-table">
-                        <tbody>
-                          {/* Row 1 */}
-                          <tr>
-                            <td colSpan="2" rowSpan="2" className="w-[30%] text-center border-none p-2">
-                               <img src="/logo.png" alt="WISDOM AUTOPARTS" className="max-w-[140px] max-h-[40px] mx-auto object-contain print-exact-color" onError={(e) => {
-                                  e.target.outerHTML = '<div class="print-exact-color bg-[#003399] text-white p-2 rounded flex flex-col items-center justify-center w-full h-8"><span class="font-bold text-[16px] leading-none">WISDOM</span></div>';
-                               }} />
-                            </td>
-                            <td colSpan="4" rowSpan="2" className="w-[70%] text-center font-bold text-[18px] bg-gray-200 tracking-wider print-exact-color relative">
-                               MEETING PROBLEM PART
-                               {/* ป้ายกำกับ กรณีพิเศษ สำหรับ Report */}
-                               {t.isSpecialRequest && (
-                                  <div className="absolute top-1 right-2 text-[10px] bg-yellow-200 text-yellow-900 border border-yellow-400 px-1.5 py-0.5 rounded print-exact-color">
-                                     ⭐ SPECIAL REQUEST
-                                  </div>
-                               )}
-                            </td>
-                          </tr>
-                          <tr></tr>
-
-                          {/* แสดงรายละเอียดกรณีพิเศษ หากมีการติ๊กเลือก */}
-                          {t.isSpecialRequest && (
-                             <tr>
-                                <td colSpan="6" className="bg-yellow-50 text-yellow-900 p-2 print-exact-color">
-                                   <div className="flex flex-col sm:flex-row gap-2 items-start justify-between">
-                                      <div className="flex-1">
-                                         <span className="font-bold text-[12px] underline">รายละเอียดการร้องขอพิเศษ:</span><br/>
-                                         <span className="whitespace-pre-wrap">{t.specialRequestDetail || '-'}</span>
-                                      </div>
-                                      {t.specialRequestImg && (
-                                         <div className="w-24 shrink-0 text-center">
-                                            <img src={t.specialRequestImg} className="h-16 w-full object-contain border border-yellow-300 rounded bg-white" alt="Special Request"/>
-                                            <div className="text-[8px] mt-0.5 text-yellow-800">รูปแนบกรณีพิเศษ</div>
-                                         </div>
-                                      )}
-                                   </div>
-                                </td>
-                             </tr>
-                          )}
-
-                          {/* Row 2 */}
-                          <tr>
-                            <td className="font-bold bg-gray-100 print-exact-color w-[15%]">Customer :</td>
-                            <td className="w-[20%]">{path.client?.name || '-'}</td>
-                            <td className="font-bold bg-gray-100 print-exact-color w-[15%]">DATE :</td>
-                            <td className="w-[20%]">{formatThaiDate(t.date)}</td>
-                            <td colSpan="2" className="font-bold text-center bg-gray-200 print-exact-color w-[30%]">MEETING MEMBER</td>
-                          </tr>
-
-                          {/* Row 3 */}
-                          <tr>
-                            <td className="font-bold bg-gray-100 print-exact-color">Model :</td>
-                            <td>{path.model?.name || '-'}</td>
-                            <td className="font-bold bg-gray-100 print-exact-color">TRY :</td>
-                            <td>#{t.trialNo} {t.trialLocation === 'outsource' ? `[${t.outsourceCompany}]` : ''}</td>
-                            <td colSpan="2" className="text-center font-bold">WDA / Customer</td>
-                          </tr>
-
-                          {/* Row 4 */}
-                          <tr>
-                            <td className="font-bold bg-gray-100 print-exact-color">Mold Name :</td>
-                            <td>{path.part?.components || '-'}</td>
-                            <td className="font-bold bg-gray-100 print-exact-color">Level Part :</td>
-                            <td className="font-bold">{t.limitSampleOk ? 'APPROVED' : 'PENDING'}</td>
-                            <td colSpan="2" className="text-center"></td>
-                          </tr>
-
-                          {/* Row 5 */}
-                          <tr>
-                            <td className="font-bold bg-gray-100 print-exact-color">Mold Maker :</td>
-                            <td>{(t.signatures || [])[1]?.name || '-'}</td>
-                            <td className="font-bold bg-gray-100 print-exact-color">Cavity QTY :</td>
-                            <td>{path.part?.cavity || '-'}</td>
-                            <td colSpan="2" className="text-center"></td>
-                          </tr>
-
-                          {/* Row 6 */}
-                          <tr>
-                            <td className="font-bold align-top bg-gray-100 print-exact-color">Part No. :</td>
-                            <td className="whitespace-pre-wrap font-bold text-blue-900">{path.part?.code || '-'}</td>
-                            <td colSpan="2" className="font-bold text-center bg-gray-200 print-exact-color">Conditions Summary</td>
-                            <td className="font-bold text-center bg-gray-100 print-exact-color w-[15%]">Issued by</td>
-                            <td className="font-bold text-center bg-gray-100 print-exact-color w-[15%]">Checked</td>
-                          </tr>
-
-                          {/* Row 7 */}
-                          <tr>
-                            <td className="font-bold align-top bg-gray-100 print-exact-color">Part Name. :</td>
-                            <td className="whitespace-pre-wrap font-bold text-blue-900">{path.part?.name || '-'}</td>
-                            <td colSpan="2" rowSpan="2" className="align-top leading-relaxed text-[10px]">
-                               {/* Conditions display */}
-                               {(t.conditions || []).map((c, i) => (
-                                 <div key={i} className="mb-1 border-b border-gray-300 border-dashed pb-1 last:border-0">
-                                   <strong>{c.name}:</strong> C/T {c.actCycleTime||'-'}s | Gate: {c.actGateWeight||'-'}g |
-                                   {(path.part?.cavities || []).map(cav => {
-                                      const act = c.actWeights?.[cav.id];
-                                      return ` ${cav.name}: ${act||'-'}g`;
-                                   }).join(' |')}
-                                   <br/><span className="text-gray-500 italic">{c.note || '-'}</span>
-                                 </div>
-                               ))}
-                            </td>
-                            <td className="text-center align-middle font-[cursive] text-blue-800 text-[14px]">{(t.signatures || [])[0]?.name || ''}</td>
-                            <td className="text-center align-middle font-[cursive] text-blue-800 text-[14px]">{(t.signatures || [])[2]?.name || ''}</td>
-                          </tr>
-
-                          {/* Row 8 */}
-                          <tr>
-                            <td className="font-bold bg-gray-100 print-exact-color">Material :</td>
-                            <td>{path.part?.material || '-'}</td>
-                            <td className="text-center font-bold">Good: {t.goodParts || '0'}</td>
-                            <td className="text-center font-bold">NG: {t.ngParts || '0'}</td>
-                          </tr>
-
-                          {/* PROBLEM & DEFECT HEADER */}
-                          <tr>
-                            <td colSpan="6" className="font-bold text-center bg-red-100 text-red-900 py-2 print-exact-color uppercase">
-                               PROBLEM & DEFECT DETAILS
-                            </td>
-                          </tr>
-
-                          {/* Part Problems loop */}
-                          {(t.partProblems || []).map(p => (
-                             <tr key={p.id}>
-                                <td colSpan="3" className="align-top border-r-0">
-                                   <span className="font-bold text-red-700 bg-red-50 px-1 print-exact-color">PART DEFECT:</span> <span className="font-bold">{p.defect}</span> <span className="text-[9px] px-1 border border-black">{p.status || '-'}</span><br/>
-                                   <strong className="text-gray-600">Detail:</strong> {p.note || '-'}<br/>
-                                   <strong className="text-gray-600">Cause:</strong> {p.cause || '-'}<br/>
-                                   <strong className="text-gray-600">Countermeasure:</strong> {p.fix || '-'}
-                                </td>
-                                <td colSpan="3" className="text-center align-middle border-l-0">
-                                   {p.img && <img src={p.img} className="max-h-24 max-w-full mx-auto object-contain" alt="Defect" />}
-                                </td>
-                             </tr>
-                          ))}
-
-                          {/* Mold Problems loop */}
-                          {(t.moldProblems || []).map(p => (
-                             <tr key={p.id}>
-                                <td colSpan="3" className="align-top border-r-0">
-                                   <span className="font-bold text-orange-700 bg-orange-50 px-1 print-exact-color">MOLD DEFECT:</span> <span className="text-[9px] px-1 border border-black">{p.status || '-'}</span><br/>
-                                   <strong className="text-gray-600">Detail:</strong> {p.note || '-'}<br/>
-                                   <strong className="text-gray-600">Cause:</strong> {p.cause || '-'}<br/>
-                                   <strong className="text-gray-600">Countermeasure:</strong> {p.fix || '-'}
-                                </td>
-                                <td colSpan="3" className="text-center align-middle border-l-0">
-                                   {p.img && <img src={p.img} className="max-h-24 max-w-full mx-auto object-contain" alt="Mold Defect" />}
-                                </td>
-                             </tr>
-                          ))}
-
-                          {/* IF NO PROBLEMS */}
-                          {(t.partProblems || []).length === 0 && (t.moldProblems || []).length === 0 && (
-                             <tr>
-                                <td colSpan="6" className="text-center py-4 text-gray-500">- ไม่มีปัญหาในการทดลองฉีด (No Defects) -</td>
-                             </tr>
-                          )}
-
-                          {/* ATTACHMENTS HEADER */}
-                          <tr>
-                            <td colSpan="6" className="font-bold text-center bg-gray-200 py-2 print-exact-color uppercase">
-                               ATTACHMENTS (ภาพถ่ายหน้างาน)
-                            </td>
-                          </tr>
-
-                          {/* ATTACHMENTS IMAGES */}
-                          <tr>
-                             <td colSpan="6" className="p-2 border-black">
-                                <div className="flex flex-wrap justify-center gap-2">
-                                  {(t.images || {}).setupClose && <div className="text-center w-[23%]"><img src={(t.images || {}).setupClose} className="h-20 w-full object-cover border border-gray-400"/><div className="text-[8px] mt-0.5">แม่พิมพ์ปิด</div></div>}
-                                  {(t.images || {}).setupOpen && <div className="text-center w-[23%]"><img src={(t.images || {}).setupOpen} className="h-20 w-full object-cover border border-gray-400"/><div className="text-[8px] mt-0.5">แม่พิมพ์เปิด</div></div>}
-                                  {(t.images || {}).cav && <div className="text-center w-[23%]"><img src={(t.images || {}).cav} className="h-20 w-full object-cover border border-gray-400"/><div className="text-[8px] mt-0.5">ฝั่ง Cavity</div></div>}
-                                  {(t.images || {}).core && <div className="text-center w-[23%]"><img src={(t.images || {}).core} className="h-20 w-full object-cover border border-gray-400"/><div className="text-[8px] mt-0.5">ฝั่ง Core</div></div>}
-                                  {(t.images || {}).coreEjector && <div className="text-center w-[23%]"><img src={(t.images || {}).coreEjector} className="h-20 w-full object-cover border border-gray-400"/><div className="text-[8px] mt-0.5">เช็คปลดงาน</div></div>}
-                                  {(t.images || {}).resin && <div className="text-center w-[23%]"><img src={(t.images || {}).resin} className="h-20 w-full object-cover border border-gray-400"/><div className="text-[8px] mt-0.5">กระสอบเม็ด</div></div>}
-                                  {(t.images || {}).machine && <div className="text-center w-[23%]"><img src={(t.images || {}).machine} className="h-20 w-full object-cover border border-gray-400"/><div className="text-[8px] mt-0.5">เครื่องจักร</div></div>}
-                                  {(t.images || {}).packing && <div className="text-center w-[23%]"><img src={(t.images || {}).packing} className="h-20 w-full object-cover border border-gray-400"/><div className="text-[8px] mt-0.5">Box / Packing</div></div>}
-                                </div>
-                             </td>
-                          </tr>
-
-                        </tbody>
-                     </table>
-                  </div>
-                </div>
-              );
-            })}
           </div>
         </div>
       </div>
