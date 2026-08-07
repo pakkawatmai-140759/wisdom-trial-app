@@ -247,7 +247,8 @@ export default function App() {
     images: { setupClose: null, setupOpen: null, cav: null, core: null, coreEjector: null, resin: null, machine: null, packing: null },
     equipmentImages: [], monitorImages: [], atmosphereImages: [], meetingImages: [],
     partProblems: [], moldProblems: [],
-    conditions: [{ id: Date.now() + Math.random(), name: 'Condition #1', actWeights: {}, actCycleTime: '', note: '', customerResult: 'pending' }],
+    // Added actGateWeight here
+    conditions: [{ id: Date.now() + Math.random(), name: 'Condition #1', actWeights: {}, actGateWeight: '', actCycleTime: '', note: '', customerResult: 'pending' }],
     goodParts: '', ngParts: '', reqModifyMold: false, reqRetrial: false, reqJig: false,
     makerAction: '', deliveryDate: '', nextTrialDate: '', limitSampleOk: false, remarks: '',
     signatures: [{ id: 1, role: 'PE', name: '' }, { id: 2, role: 'Tooling Maker', name: '' }, { id: 3, role: 'ลูกค้า (Customer)', name: '' }],
@@ -1249,8 +1250,13 @@ export default function App() {
                         })}
                       </div>
 
-                      <div className={checkNgByTolerance(selectedCond?.actCycleTime, path.part?.stdCycleTime, path.part?.stdCycleTimeTol, path.part?.stdCycleTimeTol) ? "text-red-600" : "text-green-600"}>
-                        <strong>C/T ACT:</strong> {selectedCond?.actCycleTime || '-'} sec
+                      <div className="space-y-0.5">
+                         <div className={checkNgByTolerance(selectedCond?.actCycleTime, path.part?.stdCycleTime, path.part?.stdCycleTimeTol, path.part?.stdCycleTimeTol) ? "text-red-600" : "text-green-600"}>
+                           <strong>C/T ACT:</strong> {selectedCond?.actCycleTime || '-'} sec
+                         </div>
+                         <div className="text-blue-700">
+                           <strong>Gate/Runner:</strong> {selectedCond?.actGateWeight || '-'} g
+                         </div>
                       </div>
                     </div>
 
@@ -1351,7 +1357,7 @@ export default function App() {
       const newCond = {
         id: Date.now() + Math.random(),
         name: `Condition #${(formData.conditions || []).length + 1}`,
-        actWeights: {}, actCycleTime: '', note: '', customerResult: 'pending'
+        actWeights: {}, actGateWeight: '', actCycleTime: '', note: '', customerResult: 'pending'
       };
       setFormData({ ...formData, conditions: [...(formData.conditions || []), newCond] });
     };
@@ -1651,9 +1657,15 @@ export default function App() {
                         })}
                      </div>
 
-                     <div className="mb-2">
-                        <label className="block text-[11px] font-semibold text-gray-600">Actual Cycle Time (s)</label>
-                        <input type="number" className="w-full border p-1.5 text-sm rounded mt-0.5 bg-white outline-none focus:ring-2" value={cond.actCycleTime || ''} onChange={e => updateCondition(cond.id, 'actCycleTime', e.target.value)} placeholder="ค่า Cycle Time จริง..." />
+                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                       <div>
+                          <label className="block text-[11px] font-semibold text-gray-600">Actual Cycle Time (s)</label>
+                          <input type="number" className="w-full border p-1.5 text-sm rounded mt-0.5 bg-white outline-none focus:ring-2" value={cond.actCycleTime || ''} onChange={e => updateCondition(cond.id, 'actCycleTime', e.target.value)} placeholder="ค่า Cycle Time จริง..." />
+                       </div>
+                       <div>
+                          <label className="block text-[11px] font-semibold text-gray-600">น้ำหนัก Gate / Runner (g)</label>
+                          <input type="number" step="0.001" className="w-full border p-1.5 text-sm rounded mt-0.5 bg-white outline-none focus:ring-2 text-blue-700 font-semibold" value={cond.actGateWeight || ''} onChange={e => updateCondition(cond.id, 'actGateWeight', e.target.value)} placeholder="น้ำหนัก Gate/Runner..." />
+                       </div>
                      </div>
 
                      <input type="text" className="w-full border p-1.5 text-xs rounded bg-white mb-3 outline-none focus:ring-2" placeholder="เงื่อนไขปรับจูนเพิ่มเติม (เช่น Temp, Injection Speed...)" value={cond.note || ''} onChange={e => updateCondition(cond.id, 'note', e.target.value)} />
@@ -1787,6 +1799,7 @@ export default function App() {
   const ReportView = () => {
     if (!path.part) return null;
     const allPartTrials = trials.filter(t => t.partId === path.part.id);
+    const [selectedTrialIds, setSelectedTrialIds] = useState(allPartTrials.map(t => t.id));
     const partTrialsToReport = allPartTrials.filter(t => selectedTrialIds.includes(t.id));
 
     const handleToggle = (id) => {
@@ -1951,7 +1964,7 @@ export default function App() {
                                {/* Conditions display */}
                                {(t.conditions || []).map((c, i) => (
                                  <div key={i} className="mb-1 border-b border-gray-300 border-dashed pb-1 last:border-0">
-                                   <strong>{c.name}:</strong> C/T {c.actCycleTime||'-'}s |
+                                   <strong>{c.name}:</strong> C/T {c.actCycleTime||'-'}s | Gate: {c.actGateWeight||'-'}g |
                                    {(path.part?.cavities || []).map(cav => {
                                       const act = c.actWeights?.[cav.id];
                                       return ` ${cav.name}: ${act||'-'}g`;
