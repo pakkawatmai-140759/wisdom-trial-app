@@ -27,7 +27,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// === ระบบบีบอัดรูปภาพ (สมดุลระหว่างความชัดและขนาดไฟล์) ===
+// === ระบบบีบอัดรูปภาพก่อนส่งขึ้น Cloud ===
 export const compressImage = (file, callback) => {
   const reader = new FileReader();
   reader.readAsDataURL(file);
@@ -36,7 +36,7 @@ export const compressImage = (file, callback) => {
     img.src = event.target.result;
     img.onload = () => {
       const canvas = document.createElement('canvas');
-      const MAX_WIDTH = 600; // ปรับกลับมาที่ 600px เพื่อให้พออ่านตัวเลขบนจอได้
+      const MAX_WIDTH = 800;
       let width = img.width;
       let height = img.height;
       if (width > MAX_WIDTH) {
@@ -47,7 +47,7 @@ export const compressImage = (file, callback) => {
       canvas.height = height;
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0, width, height);
-      callback(canvas.toDataURL('image/jpeg', 0.5)); // Quality 50%
+      callback(canvas.toDataURL('image/jpeg', 0.7)); 
     };
   };
 };
@@ -208,8 +208,6 @@ export default function App() {
 
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
-  
-  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     const initDB = async () => {
@@ -313,20 +311,16 @@ export default function App() {
       setSelectedScheduleIds([]);
     };
 
-    const handleSaveBooking = async () => {
+    const handleSaveBooking = () => {
       if(!bookingData.date || !bookingData.title) return alert('กรุณาใส่วันที่และหัวข้องาน');
-      try {
-         if (bookingData.id) {
-            await updateSchedules(schedules.map(s => s.id === bookingData.id ? { ...bookingData } : s));
-         } else {
-            const uniqueId = Date.now() + Math.random();
-            await updateSchedules([...schedules, { ...bookingData, id: uniqueId }]);
-         }
-         setIsBooking(false);
-         setBookingData(getInitialBookingData());
-      } catch (error) {
-         alert('ไม่สามารถบันทึกข้อมูลได้!\nสาเหตุ: ' + error.message);
+      if (bookingData.id) {
+         updateSchedules(schedules.map(s => s.id === bookingData.id ? { ...bookingData } : s));
+      } else {
+         const uniqueId = Date.now() + Math.random();
+         updateSchedules([...schedules, { ...bookingData, id: uniqueId }]);
       }
+      setIsBooking(false);
+      setBookingData(getInitialBookingData());
     };
 
     const handleDeleteBooking = (idToDelete) => {
@@ -909,20 +903,15 @@ export default function App() {
     if (!path.model) return null;
     const modelParts = parts.filter(p => p.modelId === path.model.id);
 
-    const handleSavePart = async () => {
+    const handleSavePart = () => {
       const safePartInput = {
          ...partInput,
          cavities: partInput.cavities && partInput.cavities.length > 0 ? partInput.cavities : [{ id: Date.now(), name: 'Cavity 1', std: '', plus: '', minus: '' }],
          componentsList: partInput.componentsList || []
       };
       const partToSave = { id: editingId || Date.now(), modelId: path.model.id, ...safePartInput };
-      
-      try {
-        await setDoc(doc(db, 'parts', partToSave.id.toString()), partToSave);
-        resetForms();
-      } catch(err) {
-        alert("ไม่สามารถบันทึกได้! สาเหตุ: ขนาดรูปภาพในหน้าแม่พิมพ์อาจจะใหญ่เกินไป (เกิน 1MB)");
-      }
+      setDoc(doc(db, 'parts', partToSave.id.toString()), partToSave);
+      resetForms();
     };
     
     const handleDeletePart = (id) => {
@@ -1344,20 +1333,12 @@ export default function App() {
 
     const isEditing = !!editingTrialId;
 
-    const handleSave = async (statusType) => {
-      setIsSaving(true);
-      try {
-        const finalData = { ...formData, status: statusType };
-        const trialToSave = { id: editingTrialId || Date.now(), partId: path.part.id, ...finalData };
-        await setDoc(doc(db, 'trials', trialToSave.id.toString()), trialToSave);
-        setView('trials');
-        setEditingTrialId(null);
-      } catch (error) {
-        console.error("Save error:", error);
-        alert("ไม่สามารถบันทึกข้อมูลได้!\n\nสาเหตุที่เป็นไปได้: ขนาดของข้อมูลและรูปภาพรวมกันใหญ่เกิน 1MB (ข้อจำกัดของฐานข้อมูล)\nกรุณาลดจำนวนรูปลง เช่น แนบเฉพาะรูปที่สำคัญจริงๆ ครับ");
-      } finally {
-        setIsSaving(false);
-      }
+    const handleSave = (statusType) => {
+      const finalData = { ...formData, status: statusType };
+      const trialToSave = { id: editingTrialId || Date.now(), partId: path.part.id, ...finalData };
+      setDoc(doc(db, 'trials', trialToSave.id.toString()), trialToSave);
+      setView('trials');
+      setEditingTrialId(null);
     };
 
     const addProblem = (type) => {
@@ -1804,15 +1785,15 @@ export default function App() {
 
         <div className="fixed bottom-0 left-0 right-0 p-3 bg-white border-t shadow-[0_-4px_10px_rgba(0,0,0,0.1)] flex justify-between z-20">
           <div className="max-w-4xl mx-auto flex w-full justify-between gap-2">
-            <button disabled={isSaving} onClick={() => { setView('trials'); setEditingTrialId(null); }} className="px-2 py-2.5 w-1/5 text-gray-600 font-bold bg-gray-100 rounded-lg hover:bg-gray-200 text-xs disabled:opacity-50">ยกเลิก</button>
-            <button disabled={isSaving} onClick={() => handleSave('draft')} className="px-2 py-2.5 w-2/5 bg-orange-500 text-white font-bold rounded-lg shadow hover:bg-orange-600 flex justify-center items-center text-xs disabled:opacity-50">
-               {isSaving ? 'กำลังบันทึก...' : 'บันทึกร่าง'}
+            <button onClick={() => { setView('trials'); setEditingTrialId(null); }} className="px-2 py-2.5 w-1/5 text-gray-600 font-bold bg-gray-100 rounded-lg hover:bg-gray-200 text-xs">ยกเลิก</button>
+            <button onClick={() => handleSave('draft')} className="px-2 py-2.5 w-2/5 bg-orange-500 text-white font-bold rounded-lg shadow hover:bg-orange-600 flex justify-center items-center text-xs">
+               บันทึกร่าง
             </button>
-            <button disabled={isSaving} onClick={() => handleSave('pending_customer')} className="px-2 py-2.5 w-2/5 bg-purple-600 text-white font-bold rounded-lg shadow hover:bg-purple-700 flex justify-center items-center text-xs disabled:opacity-50">
-               <Clock3 size={14} className="mr-1"/> {isSaving ? 'กำลังบันทึก...' : 'รอผลลูกค้า'}
+            <button onClick={() => handleSave('pending_customer')} className="px-2 py-2.5 w-2/5 bg-purple-600 text-white font-bold rounded-lg shadow hover:bg-purple-700 flex justify-center items-center text-xs">
+               <Clock3 size={14} className="mr-1"/> รอผลลูกค้า
             </button>
-            <button disabled={isSaving} onClick={() => handleSave('completed')} className="px-2 py-2.5 w-2/5 bg-blue-600 text-white font-bold rounded-lg shadow hover:bg-blue-700 flex justify-center items-center text-xs disabled:opacity-50">
-               <Check size={14} className="mr-1"/> {isSaving ? 'กำลังบันทึก...' : 'ปิดงาน'}
+            <button onClick={() => handleSave('completed')} className="px-2 py-2.5 w-2/5 bg-blue-600 text-white font-bold rounded-lg shadow hover:bg-blue-700 flex justify-center items-center text-xs">
+               <Check size={14} className="mr-1"/> ปิดงาน
             </button>
           </div>
         </div>
