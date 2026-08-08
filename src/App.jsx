@@ -1917,7 +1917,6 @@ export default function App() {
   const ReportView = () => {
     if (!path.part) return null;
     const allPartTrials = trials.filter(t => t.partId === path.part.id);
-    const [selectedTrialIds, setSelectedTrialIds] = useState(allPartTrials.map(t => t.id));
     
     // === ประกอบร่างรูปภาพกลับเข้าตัว Report ทันที ===
     const partTrialsToReport = allPartTrials
