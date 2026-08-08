@@ -12,7 +12,7 @@ import * as XLSX from 'xlsx';
 
 // === FIREBASE IMPORTS ===
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, getDocs } from "firebase/firestore";
+import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, getDocs, writeBatch, query, where } from "firebase/firestore";
 
 // === FIREBASE CONFIG ===
 const firebaseConfig = {
@@ -27,8 +27,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// === ระบบบีบอัดรูปภาพแบบขั้นสุดยอด (Extreme Compression) ===
-// เพื่อให้สามารถเซฟรูป 40-50 รูปได้ใน 1 Trial (ไม่ให้เกิน 1MB ของ Firestore)
+// === ระบบบีบอัดรูปภาพ (ปรับความคมชัดกลับมาเป็น HD สบายตา) ===
 export const compressImage = (file, callback) => {
   const reader = new FileReader();
   reader.readAsDataURL(file);
@@ -37,7 +36,7 @@ export const compressImage = (file, callback) => {
     img.src = event.target.result;
     img.onload = () => {
       const canvas = document.createElement('canvas');
-      const MAX_WIDTH = 350; // ลดความกว้างเหลือแค่ 350px 
+      const MAX_WIDTH = 1000; // ความคมชัดระดับ HD อ่านตัวเลขได้ชัดเจน
       let width = img.width;
       let height = img.height;
       if (width > MAX_WIDTH) {
@@ -48,38 +47,65 @@ export const compressImage = (file, callback) => {
       canvas.height = height;
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0, width, height);
-      callback(canvas.toDataURL('image/jpeg', 0.4)); // ลด Quality ลงเหลือ 40% (ไฟล์จะเล็กมากๆ)
+      callback(canvas.toDataURL('image/jpeg', 0.8)); // คงคุณภาพสีไว้ 80%
     };
   };
 };
 
+// === ไม้ตายลับ: ฟังก์ชันดึงรูปภาพแยกออกจากข้อมูลหลัก (เพื่อป้องกัน 1MB Limit) ===
+export const extractImages = (obj, imagesList) => {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj === 'string' && obj.startsWith('data:image')) {
+    const id = '@@IMG_REF@@_' + Date.now() + '_' + Math.random().toString(36).substring(2,9);
+    imagesList.push({ id, data: obj });
+    return id; // แทนที่รูปจริงด้วยรหัสอ้างอิง
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(item => extractImages(item, imagesList));
+  }
+  if (typeof obj === 'object') {
+    const newObj = {};
+    for (let key in obj) {
+      newObj[key] = extractImages(obj[key], imagesList);
+    }
+    return newObj;
+  }
+  return obj;
+};
+
+// === ไม้ตายลับ: ฟังก์ชันประกอบร่างรูปภาพกลับเข้าข้อมูลหลัก (ใช้ตอนโหลดมาแสดงผล) ===
+export const restoreImages = (obj, imageMap) => {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj === 'string' && obj.startsWith('@@IMG_REF@@_')) {
+    return imageMap[obj] || null; // คืนค่าเป็นรูปจริง หรือ null ถ้าหาไม่เจอ
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(item => restoreImages(item, imageMap));
+  }
+  if (typeof obj === 'object') {
+    const newObj = {};
+    for (let key in obj) {
+      newObj[key] = restoreImages(obj[key], imageMap);
+    }
+    return newObj;
+  }
+  return obj;
+};
+
 const printStyles = `
   @page { size: A4 portrait; margin: 8mm; }
-  
-  @media screen {
-    .print-only { display: none !important; }
-  }
-
+  @media screen { .print-only { display: none !important; } }
   @media print {
     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: white !important; margin: 0; padding: 0; }
-    
     .no-print { display: none !important; }
     .print-only { display: block !important; width: 100%; }
-    
     table.print-table { width: 100%; border-collapse: collapse; }
     thead.print-header { display: table-header-group; }
     tbody.print-body { display: table-row-group; }
     tr.print-row { page-break-inside: avoid; }
-    
     .avoid-break { page-break-inside: avoid !important; }
     .page-break-before { page-break-before: always !important; }
     .page-break-after { page-break-after: always !important; }
-    
-    .print-h1 { font-size: 14px !important; font-weight: bold !important; line-height: 1.2 !important; }
-    .print-text { font-size: 11px !important; line-height: 1.4 !important; }
-    .print-small { font-size: 9px !important; }
-    .print-sign-name { font-size: 12px !important; }
-    .print-sign-role { font-size: 10px !important; }
   }
 `;
 
@@ -171,8 +197,6 @@ const initialModels = [
   { id: 2, clientId: 1, name: '34AA' },
   { id: 3, clientId: 1, name: 'P700' },
 ];
-const initialSchedules = [];
-const initialParts = [];
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('projects'); 
@@ -211,6 +235,10 @@ export default function App() {
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   
   const [isSaving, setIsSaving] = useState(false);
+  
+  // === ระบบโหลดข้อมูลสำหรับรองรับการแยกกล่องรูปภาพ ===
+  const [isLoadingData, setIsLoadingData] = useState(false); 
+  const [reportImageMap, setReportImageMap] = useState({});
 
   useEffect(() => {
     const initDB = async () => {
@@ -226,7 +254,7 @@ export default function App() {
         if(d.exists()) setModels(d.data().list); else setDoc(doc(db, 'wisdom', 'models'), {list: initialModels});
     });
     const unsubS = onSnapshot(doc(db, 'wisdom', 'schedules'), d => {
-        if(d.exists()) setSchedules(d.data().list || []); else setDoc(doc(db, 'wisdom', 'schedules'), {list: initialSchedules});
+        if(d.exists()) setSchedules(d.data().list || []); else setDoc(doc(db, 'wisdom', 'schedules'), {list: []});
     });
     
     const unsubP = onSnapshot(collection(db, 'parts'), snap => setParts(snap.docs.map(d=>d.data())));
@@ -268,35 +296,6 @@ export default function App() {
     if (view === 'parts') setView('models');
     if (view === 'trials') setView('parts');
     if (view === 'report' || view === 'trial_form') setView('trials');
-  };
-
-  const handleExportPNG = async (elementId, filename) => {
-    const element = document.getElementById(elementId);
-    if (!element) return;
-    try {
-      const canvas = await html2canvas(element, { scale: 2, useCORS: true });
-      const dataUrl = canvas.toDataURL('image/png');
-      const link = document.createElement('a');
-      link.download = `${filename}.png`;
-      link.href = dataUrl;
-      link.click();
-    } catch (error) {
-      console.error('Export PNG Error:', error);
-      alert('เกิดข้อผิดพลาดในการสร้างไฟล์รูปภาพ');
-    }
-  };
-
-  const handleExportExcel = (elementId, filename) => {
-    const element = document.getElementById(elementId);
-    if (!element) return;
-    try {
-      const wb = XLSX.utils.table_to_book(element, { sheet: "Trial Report" });
-      XLSX.writeFile(wb, `${filename}.xlsx`);
-      alert('ส่งออก Excel สำเร็จ! \n*หมายเหตุ: ข้อมูลรูปภาพจะไม่ถูกส่งออกไปด้วยเนื่องจากข้อจำกัดของ Excel');
-    } catch (error) {
-      console.error('Export Excel Error:', error);
-      alert('เกิดข้อผิดพลาดในการสร้างไฟล์ Excel');
-    }
   };
 
   const CalendarView = () => {
@@ -1191,19 +1190,89 @@ export default function App() {
         ? Math.max(...inHouseTrials.map(t => isNaN(Number(t.trialNo)) ? 0 : Number(t.trialNo))) + 1 
         : 0;
 
-    const handleDeleteTrial = (id) => {
-        deleteDoc(doc(db, 'trials', id.toString()));
-        setConfirmDeleteId(null);
-    }
+    // ระบบโหลดและแก้ไขข้อมูลแบบใหม่ (ประกอบร่างรูปกลับคืน)
+    const handleEditTrial = async (t) => {
+      setIsLoadingData(true);
+      try {
+          const q = query(collection(db, 'trial_images'), where('trialId', '==', t.id.toString()));
+          const snaps = await getDocs(q);
+          const imageMap = {};
+          snaps.forEach(doc => {
+              const d = doc.data();
+              imageMap[d.refId] = d.data;
+          });
+
+          const restoredT = restoreImages(t, imageMap);
+          const base = getInitialTrialData();
+          const safeData = {
+              ...base,
+              ...restoredT,
+              images: { ...base.images, ...(restoredT.images || {}) },
+              partProblems: restoredT.partProblems || [],
+              moldProblems: restoredT.moldProblems || [],
+              equipmentImages: restoredT.equipmentImages || [],
+              monitorImages: restoredT.monitorImages || [],
+              atmosphereImages: restoredT.atmosphereImages || [],
+              meetingImages: restoredT.meetingImages || [],
+              conditions: restoredT.conditions && restoredT.conditions.length > 0 ? restoredT.conditions : base.conditions,
+              signatures: restoredT.signatures && restoredT.signatures.length > 0 ? restoredT.signatures : base.signatures
+          };
+          setEditingTrialId(t.id); 
+          setFormData(safeData); 
+          setView('trial_form'); 
+      } catch (error) {
+          console.error(error);
+          alert("ไม่สามารถโหลดข้อมูลรูปภาพได้");
+      } finally {
+          setIsLoadingData(false);
+      }
+    };
+
+    // เปิด Report พร้อมโหลดรูปทั้งหมด
+    const handleOpenReport = async () => {
+        setIsLoadingData(true);
+        try {
+            const q = query(collection(db, 'trial_images'), where('partId', '==', path.part.id.toString()));
+            const snaps = await getDocs(q);
+            const imageMap = {};
+            snaps.forEach(doc => {
+                const d = doc.data();
+                imageMap[d.refId] = d.data;
+            });
+            setReportImageMap(imageMap);
+            setSelectedTrialIds(partTrials.map(t => t.id));
+            setView('report');
+        } catch(err) {
+            console.error(err);
+            alert('โหลดรูปภาพสำหรับ Report ไม่สำเร็จ');
+        } finally {
+            setIsLoadingData(false);
+        }
+    };
+
+    // ลบ Trial พร้อมลบรูปในกล่องย่อยทิ้ง
+    const handleDeleteTrial = async (id) => {
+        setIsLoadingData(true);
+        try {
+            await deleteDoc(doc(db, 'trials', id.toString()));
+            const q = query(collection(db, 'trial_images'), where('trialId', '==', id.toString()));
+            const snaps = await getDocs(q);
+            const batchDelete = writeBatch(db);
+            snaps.forEach(d => batchDelete.delete(d.ref));
+            await batchDelete.commit();
+            setConfirmDeleteId(null);
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setIsLoadingData(false);
+        }
+    };
 
     return (
       <div className="space-y-4">
         <div className="flex justify-between items-center flex-wrap gap-2">
           <h2 className="text-xl font-bold flex items-center"><Activity className="mr-2" /> ประวัติ Trial: {headerTitleCode}{(path.part?.code||'').includes('\n')?'...':''}</h2>
-          <button onClick={() => {
-            setSelectedTrialIds(partTrials.map(t => t.id));
-            setView('report');
-          }} className="bg-gray-800 text-white px-4 py-2 rounded-lg flex items-center shadow hover:bg-gray-900">
+          <button onClick={handleOpenReport} className="bg-gray-800 text-white px-4 py-2 rounded-lg flex items-center shadow hover:bg-gray-900">
             <Printer className="w-4 h-4 mr-2" /> ดู Report รวม
           </button>
         </div>
@@ -1277,8 +1346,13 @@ export default function App() {
                              <strong className="text-yellow-800">⭐ รายละเอียดการร้องขอพิเศษ:</strong><br/>
                              <span className="text-gray-700 whitespace-pre-wrap">{t.specialRequestDetail || '-'}</span>
                           </div>
-                          {t.specialRequestImg && (
+                          {t.specialRequestImg && t.specialRequestImg.startsWith('data:image') && (
                              <img src={t.specialRequestImg} className="w-16 h-16 object-cover border border-yellow-300 rounded cursor-pointer shadow-sm hover:opacity-80" onClick={(e)=>{e.stopPropagation(); setZoomedImg(t.specialRequestImg);}} alt="Special Request" />
+                          )}
+                          {t.specialRequestImg && t.specialRequestImg.startsWith('@@IMG_REF') && (
+                             <div className="w-16 h-16 flex items-center justify-center bg-yellow-100 text-yellow-800 text-[10px] text-center border border-yellow-300 rounded shadow-sm">
+                                📸 มีรูปแนบ<br/>(ดูใน Report)
+                             </div>
                           )}
                        </div>
                     )}
@@ -1304,25 +1378,7 @@ export default function App() {
                      <ActionButtons 
                         id={t.id} 
                         isEditing={false} 
-                        onEdit={() => { 
-                           const base = getInitialTrialData();
-                           const safeData = {
-                              ...base,
-                              ...t,
-                              images: { ...base.images, ...(t.images || {}) },
-                              partProblems: t.partProblems || [],
-                              moldProblems: t.moldProblems || [],
-                              equipmentImages: t.equipmentImages || [],
-                              monitorImages: t.monitorImages || [],
-                              atmosphereImages: t.atmosphereImages || [],
-                              meetingImages: t.meetingImages || [],
-                              conditions: t.conditions && t.conditions.length > 0 ? t.conditions : base.conditions,
-                              signatures: t.signatures && t.signatures.length > 0 ? t.signatures : base.signatures
-                           };
-                           setEditingTrialId(t.id); 
-                           setFormData(safeData); 
-                           setView('trial_form'); 
-                        }} 
+                        onEdit={() => handleEditTrial(t)} 
                         onDelete={() => handleDeleteTrial(t.id)} 
                         confirmDeleteId={confirmDeleteId} 
                         setConfirmDeleteId={setConfirmDeleteId}
@@ -1345,17 +1401,54 @@ export default function App() {
 
     const isEditing = !!editingTrialId;
 
+    // === ระบบเซฟแบบแยกกล่อง (ไม้ตายลับ) ===
     const handleSave = async (statusType) => {
       setIsSaving(true);
       try {
         const finalData = { ...formData, status: statusType };
-        const trialToSave = { id: editingTrialId || Date.now(), partId: path.part.id, ...finalData };
-        await setDoc(doc(db, 'trials', trialToSave.id.toString()), trialToSave);
+        const trialId = editingTrialId || Date.now();
+        
+        // 1. ถอดร่างรูปภาพทั้งหมดออกมาก่อน
+        let extractedImages = [];
+        const cleanData = extractImages({ id: trialId, partId: path.part.id, ...finalData }, extractedImages);
+
+        // 2. เคลียร์รูปเก่าของ Trial นี้ทิ้งให้หมด (ถ้าเป็นการแก้ไข)
+        const q = query(collection(db, 'trial_images'), where('trialId', '==', trialId.toString()));
+        const oldSnaps = await getDocs(q);
+        const batchDelete = writeBatch(db);
+        oldSnaps.forEach(d => batchDelete.delete(d.ref));
+        await batchDelete.commit();
+
+        // 3. เซฟรูปภาพใหม่แยกใส่คนละกล่อง (1 รูป = 1 Document) ทะลุลิมิต 1MB ไปเลย!
+        if (extractedImages.length > 0) {
+            let batchInsert = writeBatch(db);
+            let count = 0;
+            for (let i = 0; i < extractedImages.length; i++) {
+               const imgRef = doc(collection(db, 'trial_images'));
+               batchInsert.set(imgRef, {
+                   trialId: trialId.toString(),
+                   partId: path.part.id.toString(),
+                   refId: extractedImages[i].id,
+                   data: extractedImages[i].data
+               });
+               count++;
+               if(count === 400) { 
+                   await batchInsert.commit();
+                   batchInsert = writeBatch(db);
+                   count = 0;
+               }
+            }
+            if(count > 0) await batchInsert.commit();
+        }
+
+        // 4. เซฟข้อมูลหลักที่เบาหวิวลงไป
+        await setDoc(doc(db, 'trials', trialId.toString()), cleanData);
+
         setView('trials');
         setEditingTrialId(null);
       } catch (error) {
         console.error("Save error:", error);
-        alert("ไม่สามารถบันทึกข้อมูลได้!\n\nสาเหตุ: ขนาดของรูปภาพรวมกันใหญ่เกินไป (แม้จะบีบอัดแล้ว)\nกรุณาลดจำนวนรูปลง หรือลบรูปเก่าออกก่อนกดบันทึกใหม่ครับ");
+        alert("บันทึกไม่สำเร็จ: " + error.message);
       } finally {
         setIsSaving(false);
       }
@@ -1825,7 +1918,11 @@ export default function App() {
     if (!path.part) return null;
     const allPartTrials = trials.filter(t => t.partId === path.part.id);
     const [selectedTrialIds, setSelectedTrialIds] = useState(allPartTrials.map(t => t.id));
-    const partTrialsToReport = allPartTrials.filter(t => selectedTrialIds.includes(t.id));
+    
+    // === ประกอบร่างรูปภาพกลับเข้าตัว Report ทันที ===
+    const partTrialsToReport = allPartTrials
+      .filter(t => selectedTrialIds.includes(t.id))
+      .map(t => restoreImages(t, reportImageMap));
 
     const handleToggle = (id) => {
       if (selectedTrialIds.includes(id)) {
@@ -2093,6 +2190,15 @@ export default function App() {
     <div className="min-h-screen bg-gray-100 text-gray-800 font-sans selection:bg-blue-200 relative print:bg-white print:m-0 print:p-0">
       <style dangerouslySetInnerHTML={{__html: printStyles}} />
       
+      {/* === หน้าจอโหลดข้อมูล (แสดงตอนดึงรูปภาพเยอะๆ) === */}
+      {isLoadingData && (
+        <div className="fixed inset-0 z-[200] bg-black/60 flex flex-col items-center justify-center backdrop-blur-sm">
+            <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin mb-4"></div>
+            <p className="text-white font-bold text-xl tracking-wider">กำลังโหลดข้อมูลและรูปภาพ...</p>
+            <p className="text-white/80 text-sm mt-2">อาจใช้เวลาสักครู่หากมีรูปภาพจำนวนมาก</p>
+        </div>
+      )}
+
       <header className="bg-blue-800 text-white p-3 shadow-md sticky top-0 z-30 no-print border-b-4 border-blue-500">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center">
