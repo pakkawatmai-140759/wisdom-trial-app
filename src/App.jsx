@@ -52,7 +52,7 @@ export const compressImage = (file, callback) => {
   };
 };
 
-// === ไม้ตายลับ: ฟังก์ชันดึงรูปภาพแยกออกจากข้อมูลหลัก ===
+// === ฟังก์ชันดึงรูปภาพแยกออกจากข้อมูลหลัก ===
 export const extractImages = (obj, imagesList) => {
   if (obj === null || obj === undefined) return obj;
   if (typeof obj === 'string' && obj.startsWith('data:image')) {
@@ -73,7 +73,7 @@ export const extractImages = (obj, imagesList) => {
   return obj;
 };
 
-// === ไม้ตายลับ: ฟังก์ชันประกอบร่างรูปภาพกลับเข้าข้อมูลหลัก ===
+// === ฟังก์ชันประกอบร่างรูปภาพกลับเข้าข้อมูลหลัก ===
 export const restoreImages = (obj, imageMap) => {
   if (obj === null || obj === undefined) return obj;
   if (typeof obj === 'string' && obj.startsWith('@@IMG_REF@@_')) {
@@ -92,6 +92,7 @@ export const restoreImages = (obj, imageMap) => {
   return obj;
 };
 
+// === แก้ปัญหาจอขาวตอนปริ้นท์ ปลดล็อกความสูงกระดาษ ===
 const printStyles = `
   @page { size: A4 portrait; margin: 8mm; }
   
@@ -100,7 +101,10 @@ const printStyles = `
   }
 
   @media print {
-    body { 
+    html, body, #root { 
+        height: auto !important; 
+        min-height: 100% !important; 
+        overflow: visible !important; 
         -webkit-print-color-adjust: exact !important; 
         print-color-adjust: exact !important; 
         background: white !important; 
@@ -108,7 +112,6 @@ const printStyles = `
         padding: 0; 
     }
     
-    /* ซ่อนปุ่มขั้นเด็ดขาด ไม่ให้โผล่มาตอน Print */
     .no-print, .hide-on-print, .print\\:hidden { 
         display: none !important; 
     }
@@ -252,10 +255,12 @@ export default function App() {
   const [schedules, setSchedules] = useState([]);
   
   const [isBooking, setIsBooking] = useState(false);
+  
+  // === เพิ่มฟิลด์ location และ updatedAt ในโครงสร้างพื้นฐาน ===
   const getInitialBookingData = () => ({ 
-    id: null, date: '', time: '', type: 'trial', title: '', detail: '', clientId: '', partId: '', machine: '', requester: '',
+    id: null, date: '', time: '', type: 'trial', title: '', detail: '', clientId: '', partId: '', machine: '', requester: '', location: '',
     reqMachineSent: false, prodApproved: false, planStatus: 'on_time', rescheduleReason: '',
-    status: 'pending', proofImages: []
+    status: 'pending', proofImages: [], updatedAt: ''
   });
   const [bookingData, setBookingData] = useState(getInitialBookingData());
 
@@ -268,7 +273,6 @@ export default function App() {
   const [compInput, setCompInput] = useState(null);
   const [formData, setFormData] = useState(null);
   
-  // === ย้าย useState ทั้งหมดมาไว้ตรงนี้ ===
   const [selectedTrialIds, setSelectedTrialIds] = useState([]);
   const [selectedScheduleIds, setSelectedScheduleIds] = useState([]);
   const [includeCalendarInReport, setIncludeCalendarInReport] = useState(true);
@@ -386,11 +390,22 @@ export default function App() {
     const handleSaveBooking = async () => {
       if(!bookingData.date || !bookingData.title) return alert('กรุณาใส่วันที่และหัวข้องาน');
       try {
+         // === สร้าง Timestamp บันทึกเวลาอัตโนมัติ ===
+         const now = new Date();
+         const day = String(now.getDate()).padStart(2, '0');
+         const month = String(now.getMonth() + 1).padStart(2, '0');
+         const year = now.getFullYear() + 543;
+         const hours = String(now.getHours()).padStart(2, '0');
+         const mins = String(now.getMinutes()).padStart(2, '0');
+         const updateTimeStr = `${day}/${month}/${year} ${hours}:${mins}`;
+
+         const dataToSave = { ...bookingData, updatedAt: updateTimeStr };
+
          if (bookingData.id) {
-            await updateSchedules(schedules.map(s => s.id === bookingData.id ? { ...bookingData } : s));
+            await updateSchedules(schedules.map(s => s.id === bookingData.id ? dataToSave : s));
          } else {
             const uniqueId = Date.now() + Math.random();
-            await updateSchedules([...schedules, { ...bookingData, id: uniqueId }]);
+            await updateSchedules([...schedules, { ...dataToSave, id: uniqueId }]);
          }
          setIsBooking(false);
          setBookingData(getInitialBookingData());
@@ -513,7 +528,15 @@ export default function App() {
                  <CalendarDays className="mr-2"/> 
                  {bookingData.id ? 'แก้ไขนัดหมาย / จองคิวงาน' : 'เพิ่มตารางนัดหมาย / จองคิวงาน'}
                </h2>
-               <p className="text-xs font-semibold text-gray-500 mt-1">วันที่ทำรายการ: {formatThaiDate((new Date().toISOString() || '').split('T')[0])}</p>
+               <div className="flex flex-col gap-0.5 mt-1">
+                 <p className="text-xs font-semibold text-gray-500">วันที่ทำรายการ: {formatThaiDate((new Date().toISOString() || '').split('T')[0])}</p>
+                 {/* === แสดงเวลาอัปเดตล่าสุด === */}
+                 {bookingData.id && bookingData.updatedAt && (
+                   <p className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 inline-block w-max">
+                     🕒 อัปเดตล่าสุด: {bookingData.updatedAt}
+                   </p>
+                 )}
+               </div>
              </div>
              <button onClick={() => { setIsBooking(false); setBookingData(getInitialBookingData()); }} className="text-gray-400 hover:text-red-500"><X size={24}/></button>
           </div>
@@ -546,8 +569,53 @@ export default function App() {
             
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">รายละเอียดเพิ่มเติม / หมายเหตุ</label>
-              <input type="text" className="w-full border p-2 rounded focus:ring-2 outline-none" placeholder="เช่น Test ประกอบที่ TRAD, จัดทำ Jig ให้เสร็จ..." value={bookingData.detail} onChange={e => setBookingData({...bookingData, detail: e.target.value})} />
+              <input type="text" className="w-full border p-2 rounded focus:ring-2 outline-none" placeholder="รายละเอียดงาน หรือข้อควรระวัง..." value={bookingData.detail} onChange={e => setBookingData({...bookingData, detail: e.target.value})} />
             </div>
+
+            {/* === แยกส่วนข้อมูลตามประเภทงาน === */}
+            {bookingData.type === 'trial' ? (
+              <div className="bg-yellow-50 p-3 rounded border border-yellow-200 grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
+                 <div>
+                   <label className="block text-xs font-semibold text-gray-700 mb-1">เลือกลูกค้า</label>
+                   <select className="w-full border p-1.5 rounded focus:ring-2 outline-none text-sm" value={bookingData.clientId} onChange={e => setBookingData({...bookingData, clientId: Number(e.target.value), partId: ''})}>
+                     <option value="">-- ไม่ระบุ --</option>
+                     {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                   </select>
+                 </div>
+                 {bookingData.clientId && (
+                   <div>
+                     <label className="block text-xs font-semibold text-gray-700 mb-1">เลือกแม่พิมพ์</label>
+                     <select className="w-full border p-1.5 rounded focus:ring-2 outline-none text-sm" value={bookingData.partId} onChange={e => setBookingData({...bookingData, partId: Number(e.target.value)})}>
+                       <option value="">-- ไม่ระบุ --</option>
+                       {parts.filter(p => models.find(m => m.id === p.modelId)?.clientId === bookingData.clientId).map(p => (
+                         <option key={p.id} value={p.id}>{(p.code||'').split('\n')[0]}{(p.code||'').includes('\n')?'...':''}</option>
+                       ))}
+                     </select>
+                   </div>
+                 )}
+                 <div>
+                   <label className="block text-xs font-semibold text-gray-700 mb-1">เครื่องจักร</label>
+                   <input type="text" className="w-full border p-1.5 rounded outline-none text-sm" placeholder="เช่น MC-250T" value={bookingData.machine} onChange={e => setBookingData({...bookingData, machine: e.target.value})} />
+                 </div>
+                 <div>
+                   <label className="block text-xs font-semibold text-gray-700 mb-1">ผู้จอง (PE)</label>
+                   <input type="text" className="w-full border p-1.5 rounded outline-none text-sm" placeholder="ชื่อ..." value={bookingData.requester} onChange={e => setBookingData({...bookingData, requester: e.target.value})} />
+                 </div>
+              </div>
+            ) : (
+              <div className="bg-blue-50 p-3 rounded border border-blue-200 grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
+                 <div>
+                   <label className="block text-xs font-semibold text-blue-900 mb-1">
+                     {bookingData.type === 'delivery' ? '📍 สถานที่จัดส่ง (Destination)' : '📍 สถานที่ / ห้อง (Location)'}
+                   </label>
+                   <input type="text" className="w-full border p-1.5 rounded outline-none text-sm focus:ring-2 focus:border-blue-400" placeholder="ระบุสถานที่..." value={bookingData.location || ''} onChange={e => setBookingData({...bookingData, location: e.target.value})} />
+                 </div>
+                 <div>
+                   <label className="block text-xs font-semibold text-blue-900 mb-1">👤 ผู้จองคิว / ผู้ประสานงาน</label>
+                   <input type="text" className="w-full border p-1.5 rounded outline-none text-sm focus:ring-2 focus:border-blue-400" placeholder="ชื่อผู้รับผิดชอบงาน..." value={bookingData.requester || ''} onChange={e => setBookingData({...bookingData, requester: e.target.value})} />
+                 </div>
+              </div>
+            )}
 
             <div className="bg-gray-50 p-4 rounded border border-gray-200 mt-4 shadow-sm">
                <h4 className="text-sm font-bold text-gray-800 border-b border-gray-300 pb-1 mb-3">สถานะความสำเร็จของงาน (Job Status)</h4>
@@ -604,36 +672,6 @@ export default function App() {
                )}
             </div>
 
-            {bookingData.type === 'trial' && (
-              <div className="bg-yellow-50 p-3 rounded border border-yellow-200 grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
-                 <div>
-                   <label className="block text-xs font-semibold text-gray-700 mb-1">เลือกลูกค้า</label>
-                   <select className="w-full border p-1.5 rounded focus:ring-2 outline-none text-sm" value={bookingData.clientId} onChange={e => setBookingData({...bookingData, clientId: Number(e.target.value), partId: ''})}>
-                     <option value="">-- ไม่ระบุ --</option>
-                     {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                   </select>
-                 </div>
-                 {bookingData.clientId && (
-                   <div>
-                     <label className="block text-xs font-semibold text-gray-700 mb-1">เลือกแม่พิมพ์</label>
-                     <select className="w-full border p-1.5 rounded focus:ring-2 outline-none text-sm" value={bookingData.partId} onChange={e => setBookingData({...bookingData, partId: Number(e.target.value)})}>
-                       <option value="">-- ไม่ระบุ --</option>
-                       {parts.filter(p => models.find(m => m.id === p.modelId)?.clientId === bookingData.clientId).map(p => (
-                         <option key={p.id} value={p.id}>{(p.code||'').split('\n')[0]}{(p.code||'').includes('\n')?'...':''}</option>
-                       ))}
-                     </select>
-                   </div>
-                 )}
-                 <div>
-                   <label className="block text-xs font-semibold text-gray-700 mb-1">เครื่องจักร</label>
-                   <input type="text" className="w-full border p-1.5 rounded outline-none text-sm" placeholder="เช่น MC-250T" value={bookingData.machine} onChange={e => setBookingData({...bookingData, machine: e.target.value})} />
-                 </div>
-                 <div>
-                   <label className="block text-xs font-semibold text-gray-700 mb-1">ผู้จอง (PE)</label>
-                   <input type="text" className="w-full border p-1.5 rounded outline-none text-sm" placeholder="ชื่อ..." value={bookingData.requester} onChange={e => setBookingData({...bookingData, requester: e.target.value})} />
-                 </div>
-              </div>
-            )}
           </div>
           
           <div className="flex justify-end items-center gap-2 mt-6">
@@ -666,7 +704,10 @@ export default function App() {
                    <button onClick={handleNextMonth} className="px-3 py-1.5 hover:bg-gray-100 border-l border-gray-300 text-gray-600 transition-colors"><ChevronRight size={18}/></button>
                  </div>
                </div>
-               <button onClick={() => { setBookingData(getInitialBookingData()); setIsBooking(true); }} className="bg-blue-600 text-white px-3 py-1.5 rounded text-sm font-bold shadow hover:bg-blue-700 flex items-center">
+               <button onClick={() => { 
+                   setBookingData({...getInitialBookingData(), date: new Date().toISOString().split('T')[0]}); 
+                   setIsBooking(true); 
+               }} className="bg-blue-600 text-white px-3 py-1.5 rounded text-sm font-bold shadow hover:bg-blue-700 flex items-center">
                  <Plus size={16} className="mr-1"/> เพิ่มงาน
                </button>
             </div>
@@ -733,6 +774,9 @@ export default function App() {
                            if (partCode) extraDetails.push(`Mold: ${partCode}`);
                            if (s.machine) extraDetails.push(`M/C: ${s.machine}`);
                            if (s.requester) extraDetails.push(`PE: ${s.requester}`);
+                        } else {
+                           if (s.location) extraDetails.push(`📍 ${s.location}`);
+                           if (s.requester) extraDetails.push(`👤 ผู้จอง: ${s.requester}`);
                         }
 
                         const isCompleted = s.status === 'completed';
@@ -757,7 +801,10 @@ export default function App() {
                                    {getTypeLabel(s.type)}
                                 </span>
                               </td>
-                              <td className="px-4 py-3 font-bold text-gray-800">{s.title}</td>
+                              <td className="px-4 py-3 font-bold text-gray-800">
+                                {s.title}
+                                {s.updatedAt && <div className="text-[9px] text-gray-400 font-normal mt-0.5">อัปเดต: {s.updatedAt}</div>}
+                              </td>
                               <td className="px-4 py-3 whitespace-normal">
                                  <div className="text-gray-600 leading-tight text-xs">{s.detail || (extraDetails.length === 0 ? '-' : '')}</div>
                                  {extraDetails.length > 0 && (
@@ -802,6 +849,109 @@ export default function App() {
                  </table>
                </div>
             </div>
+          </div>
+        </div>
+
+        <div className="print-only w-full bg-white font-sans text-black">
+          <div className="flex items-center justify-between border-b-[3px] border-blue-900 pb-3 mb-6 avoid-break">
+            <div className="flex items-center gap-4">
+               <img src="/logo.png" alt="WISDOM AUTOPARTS" className="w-40 h-auto object-contain" onError={(e) => {
+                  e.target.outerHTML = '<div class="bg-[#003399] text-white p-2 rounded flex flex-col items-center justify-center w-32 h-12"><span class="font-bold text-[16px] leading-none">WISDOM</span></div>';
+               }} />
+               <div>
+                 <h1 className="text-xl font-bold uppercase tracking-wider text-blue-900 mb-1">JOB SCHEDULE & ACTION REPORT</h1>
+                 <p className="text-sm font-semibold text-gray-600">WISDOM AUTOPARTS CO.,LTD.</p>
+               </div>
+            </div>
+            <div className="text-right">
+               <p className="text-sm font-bold text-gray-800">Month: {monthNamesThai[currentMonth]} {currentYear + 543}</p>
+               <p className="text-xs text-gray-500 mt-1">Print Date: {formatThaiDate((new Date().toISOString() || '').split('T')[0])}</p>
+            </div>
+          </div>
+
+          {includeCalendarInReport && (
+             <div className="mb-8">
+                <h3 className="text-lg font-bold text-gray-800 mb-2 border-b-2 border-gray-200 pb-1">ภาพรวมปฏิทินประจำเดือน (Monthly Overview)</h3>
+                <div className="flex flex-wrap gap-3 text-[10px] font-semibold text-gray-600 mb-2">
+                   <span className="flex items-center"><div className="w-3 h-3 bg-[#fff3c4] border border-[#fce988] rounded mr-1"></div> งานฉีด / Trial</span>
+                   <span className="flex items-center"><div className="w-3 h-3 bg-[#6bb5ff] rounded mr-1"></div> งานจัดส่ง (Delivery)</span>
+                   <span className="flex items-center"><div className="w-3 h-3 bg-[#fc9c42] rounded mr-1"></div> Support / Jig</span>
+                   <span className="flex items-center"><div className="w-3 h-3 bg-[#a3f0b6] rounded mr-1"></div> นัดประชุม (Meeting)</span>
+                </div>
+                {renderCalendarGrid()}
+             </div>
+          )}
+
+          <div className="space-y-6">
+             {currentMonthSchedules.filter(s => selectedScheduleIds.includes(s.id)).map((s, index) => {
+                let extraDetails = [];
+                if (s.type === 'trial') {
+                   const clientName = clients.find(c => c.id === s.clientId)?.name;
+                   const partObj = parts.find(p => p.id === s.partId);
+                   const partCode = partObj?.code ? String(partObj.code).split('\n')[0] : null;
+
+                   if (clientName) extraDetails.push(`Client: ${clientName}`);
+                   if (partCode) extraDetails.push(`Mold: ${partCode}`);
+                   if (s.machine) extraDetails.push(`M/C: ${s.machine}`);
+                   if (s.requester) extraDetails.push(`PE: ${s.requester}`);
+                } else {
+                   if (s.location) extraDetails.push(`📍 ${s.location}`);
+                   if (s.requester) extraDetails.push(`👤 ผู้จอง: ${s.requester}`);
+                }
+
+                return (
+                  <div key={s.id} className="avoid-break border-2 border-gray-300 rounded-xl overflow-hidden shadow-sm mb-4">
+                     <div className="bg-[#1f2937] text-white p-2.5 flex justify-between items-center print-exact-color">
+                       <h2 className="font-bold text-sm uppercase truncate pr-4">รายการที่ {index + 1} : {getTypeLabel(s.type)}</h2>
+                       <div className="text-xs font-bold whitespace-nowrap bg-gray-600 px-2 py-0.5 rounded print-exact-color">
+                          {formatThaiDate(s.date)} {s.time ? `| เวลา: ${s.time}` : ''}
+                       </div>
+                     </div>
+                     
+                     <div className="p-3 bg-white border-b border-gray-200">
+                        <span className="font-bold text-gray-500 text-[10px] block mb-0.5">หัวข้องาน (Title):</span>
+                        <h3 className="font-bold text-[14px] text-blue-900">{s.title}</h3>
+                     </div>
+
+                     <div className="p-3 bg-white">
+                       <div className="flex gap-4 mb-2 pb-2 border-b border-gray-200">
+                          <div className="flex-1 text-[11px]">
+                             <span className="font-bold text-gray-500">สถานะ (Status):</span> {s.status === 'completed' ? <span className="font-bold text-green-700">✅ เสร็จสิ้น (Completed)</span> : <span className="font-bold text-orange-600">⏳ รอดำเนินการ (Pending)</span>}
+                             {s.updatedAt && <span className="ml-4 text-gray-400 font-normal">(อัปเดตข้อมูล: {s.updatedAt})</span>}
+                          </div>
+                       </div>
+                       
+                       {extraDetails.length > 0 && (
+                          <div className="mb-2 text-[11px]">
+                             <span className="font-bold text-gray-500">ข้อมูลเพิ่มเติม (Info):</span> <span className="text-gray-800">{extraDetails.join(' • ')}</span>
+                          </div>
+                       )}
+
+                       <div className="mb-2 text-[11px]">
+                          <span className="font-bold text-gray-500 block mb-0.5">รายละเอียด / หมายเหตุ (Details):</span> 
+                          <div className="text-gray-800 leading-tight bg-gray-50 p-2 rounded border border-gray-100">{s.detail || '-'}</div>
+                       </div>
+
+                       {(s.proofImages || []).length > 0 && (
+                          <div className="mt-2 pt-2 border-t border-gray-200">
+                             <span className="font-bold text-gray-500 block mb-2 text-[11px]">รูปถ่ายหลักฐาน (Proof of Completion):</span>
+                             <div className="flex gap-2">
+                                {(s.proofImages || []).map(img => (
+                                   <img key={img.id} src={img.img} className="w-32 h-32 object-cover border-2 border-gray-300 rounded shadow-sm" alt="proof" />
+                                ))}
+                             </div>
+                          </div>
+                       )}
+                     </div>
+                  </div>
+                );
+             })}
+             
+             {selectedScheduleIds.length === 0 && (
+                <div className="text-center text-gray-500 py-10 font-bold border-2 border-dashed border-gray-300 rounded-lg">
+                   ไม่ได้เลือกรายการนัดหมายเพื่อพิมพ์ (No items selected)
+                </div>
+             )}
           </div>
         </div>
       </>
@@ -1808,7 +1958,7 @@ export default function App() {
 
           <div className="mt-4 border-t pt-4">
              <div className="flex justify-between items-center mb-2">
-               <label className="font-semibold text-gray-700 text-sm">ภาพบรรยากาศการประชุม (Meeting & Discussion)</label>
+                <label className="font-semibold text-gray-700 text-sm">ภาพบรรยากาศการประชุม (Meeting & Discussion)</label>
                 <button onClick={() => setFormData({...formData, meetingImages: [...(formData.meetingImages || []), { id: Date.now() + Math.random(), img: null }]})} className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded shadow-sm">+ เพิ่มรูปประชุม</button>
              </div>
              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -1947,14 +2097,15 @@ export default function App() {
               return (
                 <div key={t.id} className={`avoid-break ${index !== 0 ? 'page-break-before mt-8' : ''}`}>
                   
-                  {/* ห่อด้วยกล่องที่มีคำสั่งซ่อนตอนปริ้นท์แบบรุนแรง (no-print) */}
-                  <div className="flex justify-end gap-2 mb-2 no-print">
-                     <button onClick={() => handleExportPNG(containerId, exportName)} className="flex items-center gap-1 bg-indigo-600 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-indigo-700 shadow-sm">
-                        <Image size={14}/> ดาวน์โหลด PNG
-                     </button>
-                     <button onClick={() => handleExportExcel(tableId, exportName)} className="flex items-center gap-1 bg-green-600 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-green-700 shadow-sm">
-                        <Download size={14}/> ดาวน์โหลด Excel
-                     </button>
+                  <div className="hide-on-print print:hidden no-print">
+                     <div className="flex justify-end gap-2 mb-2">
+                        <button onClick={() => handleExportPNG(containerId, exportName)} className="flex items-center gap-1 bg-indigo-600 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-indigo-700 shadow-sm">
+                           <Image size={14}/> ดาวน์โหลด PNG
+                        </button>
+                        <button onClick={() => handleExportExcel(tableId, exportName)} className="flex items-center gap-1 bg-green-600 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-green-700 shadow-sm">
+                           <Download size={14}/> ดาวน์โหลด Excel
+                        </button>
+                     </div>
                   </div>
 
                   <div id={containerId} className="bg-white p-2 border border-gray-300 md:border-none print:border-none">
