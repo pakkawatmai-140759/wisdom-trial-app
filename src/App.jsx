@@ -92,7 +92,7 @@ export const restoreImages = (obj, imageMap) => {
   return obj;
 };
 
-// === สไตล์สำหรับพิมพ์ PDF ===
+// === แก้ปัญหาจอขาวตอนปริ้นท์ ปลดล็อกความสูงกระดาษ ===
 const printStyles = `
   @page { size: A4 portrait; margin: 10mm; }
   
@@ -445,43 +445,39 @@ export default function App() {
         const isDayOff = isPublicHoliday || isSunday;
         const isToday = dateStr === todayStr;
         
-        pushDayCell(d, dateStr, dayEvents, isToday, isDayOff);
-      }
+        days.push(
+          <div key={d} className={`border-r border-b p-1 min-h-[80px] md:min-h-[100px] flex flex-col group relative transition-colors ${isDayOff ? 'bg-red-50 hover:bg-red-100' : 'bg-white hover:bg-blue-50'}`}>
+            <span className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full mb-1 ${isToday ? 'bg-blue-600 text-white shadow-md' : (isDayOff ? 'text-red-600' : 'text-gray-700')}`}>
+               {d}
+            </span>
+            <div className="flex-1 overflow-y-auto space-y-1">
+              {dayEvents.map(ev => {
+                let colorClass = "bg-gray-100 text-gray-800 border-gray-300";
+                if(ev.type === 'trial') colorClass = "bg-[#fff3c4] text-[#8c6d1f] border-[#fce988]"; 
+                if(ev.type === 'delivery') colorClass = "bg-[#6bb5ff] text-white border-[#4d9cf0]"; 
+                if(ev.type === 'meeting') colorClass = "bg-[#a3f0b6] text-[#2c7a3f] border-[#81e89b]"; 
+                if(ev.type === 'support') colorClass = "bg-[#fc9c42] text-white border-[#eb892d]"; 
+                
+                const isCompleted = ev.status === 'completed';
 
-      function pushDayCell(d, dateStr, dayEvents, isToday, isDayOff) {
-          days.push(
-            <div key={d} className={`border-r border-b p-1 min-h-[80px] md:min-h-[100px] flex flex-col group relative transition-colors ${isDayOff ? 'bg-red-50 hover:bg-red-100' : 'bg-white hover:bg-blue-50'}`}>
-              <span className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full mb-1 ${isToday ? 'bg-blue-600 text-white shadow-md' : (isDayOff ? 'text-red-600' : 'text-gray-700')}`}>
-                 {d}
-              </span>
-              <div className="flex-1 overflow-y-auto space-y-1">
-                {dayEvents.map(ev => {
-                  let colorClass = "bg-gray-100 text-gray-800 border-gray-300";
-                  if(ev.type === 'trial') colorClass = "bg-[#fff3c4] text-[#8c6d1f] border-[#fce988]"; 
-                  if(ev.type === 'delivery') colorClass = "bg-[#6bb5ff] text-white border-[#4d9cf0]"; 
-                  if(ev.type === 'meeting') colorClass = "bg-[#a3f0b6] text-[#2c7a3f] border-[#81e89b]"; 
-                  if(ev.type === 'support') colorClass = "bg-[#fc9c42] text-white border-[#eb892d]"; 
-                  
-                  const isCompleted = ev.status === 'completed';
-
-                  return (
-                    <div 
-                      key={ev.id} 
-                      className={`text-[9px] md:text-[10px] leading-tight p-1 rounded border shadow-sm truncate cursor-pointer hover:opacity-80 transition-all ${isCompleted ? 'opacity-60 bg-gray-50 border-gray-200 text-gray-500' : colorClass}`} 
-                      onClick={() => handleEditSchedule(ev)}
-                    >
-                      <strong>
-                        {isCompleted && <span className="text-green-600 mr-1">✅</span>}
-                        {ev.time ? `${ev.time} ` : ''}{ev.title}
-                      </strong>
-                      {ev.detail && <span className="block opacity-80 truncate">{ev.detail}</span>}
-                    </div>
-                  )
-                })}
-              </div>
-              <button onClick={() => { setBookingData({...getInitialBookingData(), date: dateStr}); setIsBooking(true); }} className="no-print absolute top-1 right-1 opacity-0 group-hover:opacity-100 text-blue-500 hover:bg-blue-100 rounded p-0.5"><Plus size={14}/></button>
+                return (
+                  <div 
+                    key={ev.id} 
+                    className={`text-[9px] md:text-[10px] leading-tight p-1 rounded border shadow-sm truncate cursor-pointer hover:opacity-80 transition-all ${isCompleted ? 'opacity-60 bg-gray-50 border-gray-200 text-gray-500' : colorClass}`} 
+                    onClick={() => handleEditSchedule(ev)}
+                  >
+                    <strong>
+                      {isCompleted && <span className="text-green-600 mr-1">✅</span>}
+                      {ev.time ? `${ev.time} ` : ''}{ev.title}
+                    </strong>
+                    {ev.detail && <span className="block opacity-80 truncate">{ev.detail}</span>}
+                  </div>
+                )
+              })}
             </div>
-          );
+            <button onClick={() => { setBookingData({...getInitialBookingData(), date: dateStr}); setIsBooking(true); }} className="no-print absolute top-1 right-1 opacity-0 group-hover:opacity-100 text-blue-500 hover:bg-blue-100 rounded p-0.5"><Plus size={14}/></button>
+          </div>
+        );
       }
 
       return (
@@ -632,7 +628,7 @@ export default function App() {
                                     }
                                 };
                                 input.click();
-                             }} className={`text-xs bg-green-600 text-white px-3 py-1.5 rounded shadow font-bold flex items-center ${isUploadingProof ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}>
+                             }} className={`text-xs bg-green-600 text-white px-3 py-1.5 rounded shadow font-bold hover:bg-green-700 flex items-center`}>
                                 {isUploadingProof ? 'กำลังอัปโหลด...' : <><Camera size={14} className="mr-1"/> เพิ่มรูปภาพ</>}
                              </button>
                           )}
@@ -1914,7 +1910,6 @@ export default function App() {
   const ReportView = () => {
     if (!path.part) return null;
     const allPartTrials = trials.filter(t => t.partId === path.part.id);
-    const [selectedTrialIds, setSelectedTrialIds] = useState(allPartTrials.map(t => t.id));
     
     const partTrialsToReport = allPartTrials
       .filter(t => selectedTrialIds.includes(t.id))
@@ -2340,6 +2335,7 @@ export default function App() {
         </div>
       </header>
 
+      {/* ให้ Component แต่ละหน้าจัดการเรื่อง Print เอง ไม่ต้องใส่ .no-print ครอบเพื่อป้องกันการพิมพ์เบิ้ลซ้ำ */}
       <main className="max-w-4xl mx-auto p-4 py-6 print:p-0 print:m-0 print:max-w-none print:w-full">
         {activeTab === 'projects' && view === 'clients' ? <div className="no-print">{ClientListView()}</div> : null}
         {activeTab === 'projects' && view === 'models' ? <div className="no-print">{ModelsView()}</div> : null}
@@ -2347,7 +2343,7 @@ export default function App() {
         {activeTab === 'projects' && view === 'trials' ? <div className="no-print">{TrialsView()}</div> : null}
         {activeTab === 'projects' && view === 'trial_form' ? <div className="no-print">{TrialForm()}</div> : null}
         {activeTab === 'projects' && view === 'report' ? ReportView() : null}
-        {activeTab === 'calendar' ? <div className="no-print">{CalendarView()}</div> : null}
+        {activeTab === 'calendar' ? CalendarView() : null}
       </main>
 
       {zoomedImg && (
