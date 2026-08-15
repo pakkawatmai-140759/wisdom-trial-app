@@ -101,7 +101,6 @@ const printStyles = `
   }
 
   @media print {
-    /* ปลดล็อกหน้ากระดาษ ไม่ให้เบราว์เซอร์ตัดเป็นหน้าขาว */
     html, body, #root { 
         height: auto !important; 
         min-height: auto !important; 
@@ -113,7 +112,6 @@ const printStyles = `
         padding: 0; 
     }
     
-    /* ซ่อนปุ่มต่างๆ ขั้นเด็ดขาด */
     .no-print, .hide-on-print, .print\\:hidden, header { 
         display: none !important; 
     }
@@ -128,7 +126,6 @@ const printStyles = `
         border: 1px solid black !important; 
     }
     
-    /* ปล่อยให้ข้อมูลไหลข้ามหน้ากระดาษได้ ป้องกันอาการจอขาวถ้ารูปเยอะ */
     tr { page-break-inside: auto !important; page-break-after: auto !important; }
     td { page-break-inside: auto !important; }
     
@@ -241,7 +238,6 @@ export default function App() {
   
   const [isBooking, setIsBooking] = useState(false);
   
-  // === เพิ่มฟิลด์ location และ updatedAt ในโครงสร้างพื้นฐาน ===
   const getInitialBookingData = () => ({ 
     id: null, date: '', time: '', type: 'trial', title: '', detail: '', clientId: '', partId: '', machine: '', requester: '', location: '',
     reqMachineSent: false, prodApproved: false, planStatus: 'on_time', rescheduleReason: '',
@@ -375,7 +371,6 @@ export default function App() {
     const handleSaveBooking = async () => {
       if(!bookingData.date || !bookingData.title) return alert('กรุณาใส่วันที่และหัวข้องาน');
       try {
-         // === สร้าง Timestamp บันทึกเวลาอัตโนมัติ ===
          const now = new Date();
          const day = String(now.getDate()).padStart(2, '0');
          const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -515,7 +510,6 @@ export default function App() {
                </h2>
                <div className="flex flex-col gap-0.5 mt-1">
                  <p className="text-xs font-semibold text-gray-500">วันที่ทำรายการ: {formatThaiDate((new Date().toISOString() || '').split('T')[0])}</p>
-                 {/* === แสดงเวลาอัปเดตล่าสุด === */}
                  {bookingData.id && bookingData.updatedAt && (
                    <p className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 inline-block w-max">
                      🕒 อัปเดตล่าสุด: {bookingData.updatedAt}
@@ -557,7 +551,6 @@ export default function App() {
               <input type="text" className="w-full border p-2 rounded focus:ring-2 outline-none" placeholder="รายละเอียดงาน หรือข้อควรระวัง..." value={bookingData.detail} onChange={e => setBookingData({...bookingData, detail: e.target.value})} />
             </div>
 
-            {/* === แยกส่วนข้อมูลตามประเภทงาน === */}
             {bookingData.type === 'trial' ? (
               <div className="bg-yellow-50 p-3 rounded border border-yellow-200 grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
                  <div>
@@ -836,7 +829,6 @@ export default function App() {
             </div>
           </div>
         </div>
-
       </>
     );
   };
@@ -1918,7 +1910,6 @@ export default function App() {
   const ReportView = () => {
     if (!path.part) return null;
     const allPartTrials = trials.filter(t => t.partId === path.part.id);
-    const [selectedTrialIds, setSelectedTrialIds] = useState(allPartTrials.map(t => t.id));
     
     const partTrialsToReport = allPartTrials
       .filter(t => selectedTrialIds.includes(t.id))
