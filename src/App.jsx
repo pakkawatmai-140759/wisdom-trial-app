@@ -94,18 +94,59 @@ export const restoreImages = (obj, imageMap) => {
 
 const printStyles = `
   @page { size: A4 portrait; margin: 8mm; }
-  @media screen { .print-only { display: none !important; } }
+  
+  @media screen {
+    .print-only { display: none !important; }
+  }
+
   @media print {
-    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: white !important; margin: 0; padding: 0; }
+    body { 
+        -webkit-print-color-adjust: exact !important; 
+        print-color-adjust: exact !important; 
+        background: white !important; 
+        margin: 0; 
+        padding: 0; 
+    }
+    
     .no-print { display: none !important; }
-    .print-only { display: block !important; width: 100%; }
-    table.print-table { width: 100%; border-collapse: collapse; }
-    thead.print-header { display: table-header-group; }
-    tbody.print-body { display: table-row-group; }
-    tr.print-row { page-break-inside: avoid; }
-    .avoid-break { page-break-inside: avoid !important; }
-    .page-break-before { page-break-before: always !important; }
-    .page-break-after { page-break-after: always !important; }
+    .print-only { display: block !important; width: 100%; max-width: 100%; }
+    
+    /* 1. บังคับตารางให้ล็อคความกว้างเป๊ะๆ ไม่ให้คอลัมน์หดตัวเบี้ยว */
+    table.print-table { 
+        width: 100% !important; 
+        border-collapse: collapse !important; 
+        table-layout: fixed !important; /* คำสั่งสำคัญ: ล็อคโครงสร้าง */
+        word-wrap: break-word; 
+    }
+    table.print-table td { 
+        border: 1px solid black !important; 
+    }
+    
+    /* 2. ป้องกันข้อมูลหรือรูปภาพโดนตัดขาดครึ่งหน้ากระดาษ */
+    tr { page-break-inside: avoid !important; page-break-after: auto !important; }
+    td { page-break-inside: avoid !important; }
+    img { max-width: 100% !important; page-break-inside: avoid !important; }
+    
+    /* 3. บังคับ Flexbox ให้จัดเรียงรูปภาพแนบให้ถูกต้องตอนปริ้นท์ */
+    .flex { display: flex !important; }
+    .flex-row { flex-direction: row !important; }
+    .flex-col { flex-direction: column !important; }
+    .flex-wrap { flex-wrap: wrap !important; }
+    .items-center { align-items: center !important; }
+    .justify-center { justify-content: center !important; }
+    
+    /* 4. บังคับเปอร์เซ็นต์ความกว้างให้ตรงกับโค้ด Tailwind ที่เราเขียนไว้ */
+    .w-\\[30\\%\\] { width: 30% !important; }
+    .w-\\[70\\%\\] { width: 70% !important; }
+    .w-\\[15\\%\\] { width: 15% !important; }
+    .w-\\[20\\%\\] { width: 20% !important; }
+    .w-\\[23\\%\\] { width: 23% !important; }
+
+    .print-h1 { font-size: 14px !important; font-weight: bold !important; line-height: 1.2 !important; }
+    .print-text { font-size: 11px !important; line-height: 1.4 !important; }
+    .print-small { font-size: 9px !important; }
+    .print-sign-name { font-size: 12px !important; }
+    .print-sign-role { font-size: 10px !important; }
   }
 `;
 
