@@ -94,16 +94,17 @@ export const restoreImages = (obj, imageMap) => {
 
 // === แก้ปัญหาจอขาวตอนปริ้นท์ ปลดล็อกความสูงกระดาษ ===
 const printStyles = `
-  @page { size: A4 portrait; margin: 8mm; }
+  @page { size: A4 portrait; margin: 10mm; }
   
   @media screen {
     .print-only { display: none !important; }
   }
 
   @media print {
+    /* ปลดล็อกหน้ากระดาษ ไม่ให้เบราว์เซอร์ตัดเป็นหน้าขาว */
     html, body, #root { 
         height: auto !important; 
-        min-height: 100% !important; 
+        min-height: auto !important; 
         overflow: visible !important; 
         -webkit-print-color-adjust: exact !important; 
         print-color-adjust: exact !important; 
@@ -112,7 +113,8 @@ const printStyles = `
         padding: 0; 
     }
     
-    .no-print, .hide-on-print, .print\\:hidden { 
+    /* ซ่อนปุ่มต่างๆ ขั้นเด็ดขาด */
+    .no-print, .hide-on-print, .print\\:hidden, header { 
         display: none !important; 
     }
     
@@ -121,35 +123,18 @@ const printStyles = `
     table.print-table { 
         width: 100% !important; 
         border-collapse: collapse !important; 
-        table-layout: fixed !important; 
-        word-wrap: break-word; 
     }
-    table.print-table td { 
+    table.print-table td, table.print-table th { 
         border: 1px solid black !important; 
     }
     
-    tr { page-break-inside: avoid !important; page-break-after: auto !important; }
-    td { page-break-inside: avoid !important; }
+    /* ปล่อยให้ข้อมูลไหลข้ามหน้ากระดาษได้ ป้องกันอาการจอขาวถ้ารูปเยอะ */
+    tr { page-break-inside: auto !important; page-break-after: auto !important; }
+    td { page-break-inside: auto !important; }
+    
+    .page-break-before { page-break-before: always !important; }
+    
     img { max-width: 100% !important; page-break-inside: avoid !important; }
-    
-    .flex { display: flex; }
-    .flex-row { flex-direction: row; }
-    .flex-col { flex-direction: column; }
-    .flex-wrap { flex-wrap: wrap; }
-    .items-center { align-items: center; }
-    .justify-center { justify-content: center; }
-    
-    .w-\\[30\\%\\] { width: 30% !important; }
-    .w-\\[70\\%\\] { width: 70% !important; }
-    .w-\\[15\\%\\] { width: 15% !important; }
-    .w-\\[20\\%\\] { width: 20% !important; }
-    .w-\\[23\\%\\] { width: 23% !important; }
-
-    .print-h1 { font-size: 14px !important; font-weight: bold !important; line-height: 1.2 !important; }
-    .print-text { font-size: 11px !important; line-height: 1.4 !important; }
-    .print-small { font-size: 9px !important; }
-    .print-sign-name { font-size: 12px !important; }
-    .print-sign-role { font-size: 10px !important; }
   }
 `;
 
@@ -256,7 +241,7 @@ export default function App() {
   
   const [isBooking, setIsBooking] = useState(false);
   
-  // === เพิ่มฟิลด์ location และ updatedAt ในโครงสร้างพื้นฐาน ===
+  // === เพิ่มฟิลด์ location และ updatedAt ===
   const getInitialBookingData = () => ({ 
     id: null, date: '', time: '', type: 'trial', title: '', detail: '', clientId: '', partId: '', machine: '', requester: '', location: '',
     reqMachineSent: false, prodApproved: false, planStatus: 'on_time', rescheduleReason: '',
@@ -849,109 +834,6 @@ export default function App() {
                  </table>
                </div>
             </div>
-          </div>
-        </div>
-
-        <div className="print-only w-full bg-white font-sans text-black">
-          <div className="flex items-center justify-between border-b-[3px] border-blue-900 pb-3 mb-6 avoid-break">
-            <div className="flex items-center gap-4">
-               <img src="/logo.png" alt="WISDOM AUTOPARTS" className="w-40 h-auto object-contain" onError={(e) => {
-                  e.target.outerHTML = '<div class="bg-[#003399] text-white p-2 rounded flex flex-col items-center justify-center w-32 h-12"><span class="font-bold text-[16px] leading-none">WISDOM</span></div>';
-               }} />
-               <div>
-                 <h1 className="text-xl font-bold uppercase tracking-wider text-blue-900 mb-1">JOB SCHEDULE & ACTION REPORT</h1>
-                 <p className="text-sm font-semibold text-gray-600">WISDOM AUTOPARTS CO.,LTD.</p>
-               </div>
-            </div>
-            <div className="text-right">
-               <p className="text-sm font-bold text-gray-800">Month: {monthNamesThai[currentMonth]} {currentYear + 543}</p>
-               <p className="text-xs text-gray-500 mt-1">Print Date: {formatThaiDate((new Date().toISOString() || '').split('T')[0])}</p>
-            </div>
-          </div>
-
-          {includeCalendarInReport && (
-             <div className="mb-8">
-                <h3 className="text-lg font-bold text-gray-800 mb-2 border-b-2 border-gray-200 pb-1">ภาพรวมปฏิทินประจำเดือน (Monthly Overview)</h3>
-                <div className="flex flex-wrap gap-3 text-[10px] font-semibold text-gray-600 mb-2">
-                   <span className="flex items-center"><div className="w-3 h-3 bg-[#fff3c4] border border-[#fce988] rounded mr-1"></div> งานฉีด / Trial</span>
-                   <span className="flex items-center"><div className="w-3 h-3 bg-[#6bb5ff] rounded mr-1"></div> งานจัดส่ง (Delivery)</span>
-                   <span className="flex items-center"><div className="w-3 h-3 bg-[#fc9c42] rounded mr-1"></div> Support / Jig</span>
-                   <span className="flex items-center"><div className="w-3 h-3 bg-[#a3f0b6] rounded mr-1"></div> นัดประชุม (Meeting)</span>
-                </div>
-                {renderCalendarGrid()}
-             </div>
-          )}
-
-          <div className="space-y-6">
-             {currentMonthSchedules.filter(s => selectedScheduleIds.includes(s.id)).map((s, index) => {
-                let extraDetails = [];
-                if (s.type === 'trial') {
-                   const clientName = clients.find(c => c.id === s.clientId)?.name;
-                   const partObj = parts.find(p => p.id === s.partId);
-                   const partCode = partObj?.code ? String(partObj.code).split('\n')[0] : null;
-
-                   if (clientName) extraDetails.push(`Client: ${clientName}`);
-                   if (partCode) extraDetails.push(`Mold: ${partCode}`);
-                   if (s.machine) extraDetails.push(`M/C: ${s.machine}`);
-                   if (s.requester) extraDetails.push(`PE: ${s.requester}`);
-                } else {
-                   if (s.location) extraDetails.push(`📍 ${s.location}`);
-                   if (s.requester) extraDetails.push(`👤 ผู้จอง: ${s.requester}`);
-                }
-
-                return (
-                  <div key={s.id} className="avoid-break border-2 border-gray-300 rounded-xl overflow-hidden shadow-sm mb-4">
-                     <div className="bg-[#1f2937] text-white p-2.5 flex justify-between items-center print-exact-color">
-                       <h2 className="font-bold text-sm uppercase truncate pr-4">รายการที่ {index + 1} : {getTypeLabel(s.type)}</h2>
-                       <div className="text-xs font-bold whitespace-nowrap bg-gray-600 px-2 py-0.5 rounded print-exact-color">
-                          {formatThaiDate(s.date)} {s.time ? `| เวลา: ${s.time}` : ''}
-                       </div>
-                     </div>
-                     
-                     <div className="p-3 bg-white border-b border-gray-200">
-                        <span className="font-bold text-gray-500 text-[10px] block mb-0.5">หัวข้องาน (Title):</span>
-                        <h3 className="font-bold text-[14px] text-blue-900">{s.title}</h3>
-                     </div>
-
-                     <div className="p-3 bg-white">
-                       <div className="flex gap-4 mb-2 pb-2 border-b border-gray-200">
-                          <div className="flex-1 text-[11px]">
-                             <span className="font-bold text-gray-500">สถานะ (Status):</span> {s.status === 'completed' ? <span className="font-bold text-green-700">✅ เสร็จสิ้น (Completed)</span> : <span className="font-bold text-orange-600">⏳ รอดำเนินการ (Pending)</span>}
-                             {s.updatedAt && <span className="ml-4 text-gray-400 font-normal">(อัปเดตข้อมูล: {s.updatedAt})</span>}
-                          </div>
-                       </div>
-                       
-                       {extraDetails.length > 0 && (
-                          <div className="mb-2 text-[11px]">
-                             <span className="font-bold text-gray-500">ข้อมูลเพิ่มเติม (Info):</span> <span className="text-gray-800">{extraDetails.join(' • ')}</span>
-                          </div>
-                       )}
-
-                       <div className="mb-2 text-[11px]">
-                          <span className="font-bold text-gray-500 block mb-0.5">รายละเอียด / หมายเหตุ (Details):</span> 
-                          <div className="text-gray-800 leading-tight bg-gray-50 p-2 rounded border border-gray-100">{s.detail || '-'}</div>
-                       </div>
-
-                       {(s.proofImages || []).length > 0 && (
-                          <div className="mt-2 pt-2 border-t border-gray-200">
-                             <span className="font-bold text-gray-500 block mb-2 text-[11px]">รูปถ่ายหลักฐาน (Proof of Completion):</span>
-                             <div className="flex gap-2">
-                                {(s.proofImages || []).map(img => (
-                                   <img key={img.id} src={img.img} className="w-32 h-32 object-cover border-2 border-gray-300 rounded shadow-sm" alt="proof" />
-                                ))}
-                             </div>
-                          </div>
-                       )}
-                     </div>
-                  </div>
-                );
-             })}
-             
-             {selectedScheduleIds.length === 0 && (
-                <div className="text-center text-gray-500 py-10 font-bold border-2 border-dashed border-gray-300 rounded-lg">
-                   ไม่ได้เลือกรายการนัดหมายเพื่อพิมพ์ (No items selected)
-                </div>
-             )}
           </div>
         </div>
       </>
@@ -2095,7 +1977,7 @@ export default function App() {
               const exportName = `MEETING_PROBLEM_${(path.part?.code || '').split('\n')[0] || 'Unknown'}_TRIAL-${t.trialNo}`;
 
               return (
-                <div key={t.id} className={`avoid-break ${index !== 0 ? 'page-break-before mt-8' : ''}`}>
+                <div key={t.id} className={`w-full ${index !== 0 ? 'page-break-before mt-8 pt-4 border-t-2 border-dashed border-gray-400' : ''}`}>
                   
                   <div className="hide-on-print print:hidden no-print">
                      <div className="flex justify-end gap-2 mb-2">
