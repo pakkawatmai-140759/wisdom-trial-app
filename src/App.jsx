@@ -241,7 +241,7 @@ export default function App() {
   
   const [isBooking, setIsBooking] = useState(false);
   
-  // === เพิ่มฟิลด์ location และ updatedAt ===
+  // === เพิ่มฟิลด์ location และ updatedAt ในโครงสร้างพื้นฐาน ===
   const getInitialBookingData = () => ({ 
     id: null, date: '', time: '', type: 'trial', title: '', detail: '', clientId: '', partId: '', machine: '', requester: '', location: '',
     reqMachineSent: false, prodApproved: false, planStatus: 'on_time', rescheduleReason: '',
@@ -836,6 +836,7 @@ export default function App() {
             </div>
           </div>
         </div>
+
       </>
     );
   };
@@ -1977,7 +1978,7 @@ export default function App() {
               const exportName = `MEETING_PROBLEM_${(path.part?.code || '').split('\n')[0] || 'Unknown'}_TRIAL-${t.trialNo}`;
 
               return (
-                <div key={t.id} className={`w-full ${index !== 0 ? 'page-break-before mt-8 pt-4 border-t-2 border-dashed border-gray-400' : ''}`}>
+                <div key={t.id} className={`avoid-break ${index !== 0 ? 'page-break-before mt-8' : ''}`}>
                   
                   <div className="hide-on-print print:hidden no-print">
                      <div className="flex justify-end gap-2 mb-2">
@@ -2214,6 +2215,7 @@ export default function App() {
         </div>
       </header>
 
+      {/* ให้ Component แต่ละหน้าจัดการเรื่อง Print เอง ไม่ต้องใส่ .no-print ครอบเพื่อป้องกันการพิมพ์เบิ้ลซ้ำ */}
       <main className="max-w-4xl mx-auto p-4 py-6 print:p-0 print:m-0 print:max-w-none print:w-full">
         {activeTab === 'projects' && view === 'clients' ? <div className="no-print">{ClientListView()}</div> : null}
         {activeTab === 'projects' && view === 'models' ? <div className="no-print">{ModelsView()}</div> : null}
