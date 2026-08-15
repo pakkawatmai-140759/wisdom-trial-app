@@ -27,7 +27,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// === ระบบบีบอัดรูปภาพ (ปรับความคมชัดกลับมาเป็น HD สบายตา) ===
+// === ระบบบีบอัดรูปภาพ ===
 export const compressImage = (file, callback) => {
   const reader = new FileReader();
   reader.readAsDataURL(file);
@@ -36,7 +36,7 @@ export const compressImage = (file, callback) => {
     img.src = event.target.result;
     img.onload = () => {
       const canvas = document.createElement('canvas');
-      const MAX_WIDTH = 1000; // ความคมชัดระดับ HD อ่านตัวเลขได้ชัดเจน
+      const MAX_WIDTH = 1000;
       let width = img.width;
       let height = img.height;
       if (width > MAX_WIDTH) {
@@ -47,18 +47,18 @@ export const compressImage = (file, callback) => {
       canvas.height = height;
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0, width, height);
-      callback(canvas.toDataURL('image/jpeg', 0.8)); // คงคุณภาพสีไว้ 80%
+      callback(canvas.toDataURL('image/jpeg', 0.8));
     };
   };
 };
 
-// === ไม้ตายลับ: ฟังก์ชันดึงรูปภาพแยกออกจากข้อมูลหลัก (เพื่อป้องกัน 1MB Limit) ===
+// === ไม้ตายลับ: ฟังก์ชันดึงรูปภาพแยกออกจากข้อมูลหลัก ===
 export const extractImages = (obj, imagesList) => {
   if (obj === null || obj === undefined) return obj;
   if (typeof obj === 'string' && obj.startsWith('data:image')) {
     const id = '@@IMG_REF@@_' + Date.now() + '_' + Math.random().toString(36).substring(2,9);
     imagesList.push({ id, data: obj });
-    return id; // แทนที่รูปจริงด้วยรหัสอ้างอิง
+    return id; 
   }
   if (Array.isArray(obj)) {
     return obj.map(item => extractImages(item, imagesList));
@@ -73,11 +73,11 @@ export const extractImages = (obj, imagesList) => {
   return obj;
 };
 
-// === ไม้ตายลับ: ฟังก์ชันประกอบร่างรูปภาพกลับเข้าข้อมูลหลัก (ใช้ตอนโหลดมาแสดงผล) ===
+// === ไม้ตายลับ: ฟังก์ชันประกอบร่างรูปภาพกลับเข้าข้อมูลหลัก ===
 export const restoreImages = (obj, imageMap) => {
   if (obj === null || obj === undefined) return obj;
   if (typeof obj === 'string' && obj.startsWith('@@IMG_REF@@_')) {
-    return imageMap[obj] || null; // คืนค่าเป็นรูปจริง หรือ null ถ้าหาไม่เจอ
+    return imageMap[obj] || null; 
   }
   if (Array.isArray(obj)) {
     return obj.map(item => restoreImages(item, imageMap));
@@ -111,7 +111,6 @@ const printStyles = `
     .no-print { display: none !important; }
     .print-only { display: block !important; width: 100%; max-width: 100%; }
     
-    /* บังคับตารางให้ล็อคความกว้างเป๊ะๆ ไม่ให้คอลัมน์หดตัวเบี้ยว */
     table.print-table { 
         width: 100% !important; 
         border-collapse: collapse !important; 
@@ -122,12 +121,10 @@ const printStyles = `
         border: 1px solid black !important; 
     }
     
-    /* ป้องกันข้อมูลหรือรูปภาพโดนตัดขาดครึ่งหน้ากระดาษ */
     tr { page-break-inside: avoid !important; page-break-after: auto !important; }
     td { page-break-inside: avoid !important; }
     img { max-width: 100% !important; page-break-inside: avoid !important; }
     
-    /* บังคับ Flexbox ให้จัดเรียงรูปภาพแนบให้ถูกต้องตอนปริ้นท์ */
     .flex { display: flex !important; }
     .flex-row { flex-direction: row !important; }
     .flex-col { flex-direction: column !important; }
@@ -135,7 +132,6 @@ const printStyles = `
     .items-center { align-items: center !important; }
     .justify-center { justify-content: center !important; }
     
-    /* บังคับเปอร์เซ็นต์ความกว้างให้ตรงกับโค้ด Tailwind ที่เราเขียนไว้ */
     .w-\\[30\\%\\] { width: 30% !important; }
     .w-\\[70\\%\\] { width: 70% !important; }
     .w-\\[15\\%\\] { width: 15% !important; }
@@ -275,11 +271,12 @@ export default function App() {
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   
+  // === ย้ายตัวแปร Loading ทั้งหมดมาไว้ตรงนี้ ป้องกันบัคจอขาว ===
   const [isSaving, setIsSaving] = useState(false);
-  
-  // === ระบบโหลดข้อมูลสำหรับรองรับการแยกกล่องรูปภาพ ===
   const [isLoadingData, setIsLoadingData] = useState(false); 
   const [reportImageMap, setReportImageMap] = useState({});
+  const [isUploadingProof, setIsUploadingProof] = useState(false);
+  const [isUploadingPartImg, setIsUploadingPartImg] = useState(false);
 
   useEffect(() => {
     const initDB = async () => {
@@ -361,7 +358,7 @@ export default function App() {
     try {
       const wb = XLSX.utils.table_to_book(element, { sheet: "Trial Report" });
       XLSX.writeFile(wb, `${filename}.xlsx`);
-      alert('ส่งออก Excel สำเร็จ! \n*หมายเหตุ: รูปภาพไม่สามารถส่งออกในไฟล์ Excel ได้ครับ');
+      alert('ส่งออก Excel สำเร็จ! \n*หมายเหตุ: รูปภาพจะไม่ถูกส่งออกไปด้วยเนื่องจากข้อจำกัดของ Excel');
     } catch (error) {
       console.error('Export Excel Error:', error);
       alert('เกิดข้อผิดพลาดในการสร้างไฟล์ Excel');
@@ -569,18 +566,21 @@ export default function App() {
                           <label className="text-sm font-bold text-green-800">แนบรูปถ่ายหลักฐานปิดงาน (สูงสุด 3 รูป)</label>
                           {(bookingData.proofImages || []).length < 3 && (
                              <button type="button" onClick={() => {
+                                if(isUploadingProof) return;
                                 const input = document.createElement('input');
                                 input.type = 'file'; input.accept = 'image/*';
                                 input.onchange = (e) => {
                                     if(e.target.files && e.target.files[0]) {
+                                        setIsUploadingProof(true);
                                         compressImage(e.target.files[0], (url) => {
                                             setBookingData(prev => ({...prev, proofImages: [...(prev.proofImages || []), {id: Date.now(), img: url}]}));
+                                            setIsUploadingProof(false);
                                         });
                                     }
                                 };
                                 input.click();
-                             }} className="text-xs bg-green-600 text-white px-3 py-1.5 rounded shadow font-bold hover:bg-green-700 flex items-center">
-                                <Camera size={14} className="mr-1"/> เพิ่มรูปภาพ
+                             }} className={`text-xs text-white px-3 py-1.5 rounded shadow font-bold flex items-center ${isUploadingProof ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}>
+                                {isUploadingProof ? 'กำลังอัปโหลด...' : <><Camera size={14} className="mr-1"/> เพิ่มรูปภาพ</>}
                              </button>
                           )}
                        </div>
@@ -802,7 +802,104 @@ export default function App() {
           </div>
         </div>
 
-        {/* ... (Print version of CalendarView is here in the original code, but we remove it to prevent double printing if needed. However, since CalendarView manages its own no-print/print-only classes internally, we just keep it as is, but ensure no wrapper clashes.) ... */}
+        <div className="print-only w-full bg-white font-sans text-black">
+          <div className="flex items-center justify-between border-b-[3px] border-blue-900 pb-3 mb-6 avoid-break">
+            <div className="flex items-center gap-4">
+               <img src="/logo.png" alt="WISDOM AUTOPARTS" className="w-40 h-auto object-contain" onError={(e) => {
+                  e.target.outerHTML = '<div class="bg-[#003399] text-white p-2 rounded flex flex-col items-center justify-center w-32 h-12"><span class="font-bold text-[16px] leading-none">WISDOM</span></div>';
+               }} />
+               <div>
+                 <h1 className="text-xl font-bold uppercase tracking-wider text-blue-900 mb-1">JOB SCHEDULE & ACTION REPORT</h1>
+                 <p className="text-sm font-semibold text-gray-600">WISDOM AUTOPARTS CO.,LTD.</p>
+               </div>
+            </div>
+            <div className="text-right">
+               <p className="text-sm font-bold text-gray-800">Month: {monthNamesThai[currentMonth]} {currentYear + 543}</p>
+               <p className="text-xs text-gray-500 mt-1">Print Date: {formatThaiDate((new Date().toISOString() || '').split('T')[0])}</p>
+            </div>
+          </div>
+
+          {includeCalendarInReport && (
+             <div className="mb-8">
+                <h3 className="text-lg font-bold text-gray-800 mb-2 border-b-2 border-gray-200 pb-1">ภาพรวมปฏิทินประจำเดือน (Monthly Overview)</h3>
+                <div className="flex flex-wrap gap-3 text-[10px] font-semibold text-gray-600 mb-2">
+                   <span className="flex items-center"><div className="w-3 h-3 bg-[#fff3c4] border border-[#fce988] rounded mr-1"></div> งานฉีด / Trial</span>
+                   <span className="flex items-center"><div className="w-3 h-3 bg-[#6bb5ff] rounded mr-1"></div> งานจัดส่ง (Delivery)</span>
+                   <span className="flex items-center"><div className="w-3 h-3 bg-[#fc9c42] rounded mr-1"></div> Support / Jig</span>
+                   <span className="flex items-center"><div className="w-3 h-3 bg-[#a3f0b6] rounded mr-1"></div> นัดประชุม (Meeting)</span>
+                </div>
+                {renderCalendarGrid()}
+             </div>
+          )}
+
+          <div className="space-y-6">
+             {currentMonthSchedules.filter(s => selectedScheduleIds.includes(s.id)).map((s, index) => {
+                let extraDetails = [];
+                if (s.type === 'trial') {
+                   const clientName = clients.find(c => c.id === s.clientId)?.name;
+                   const partObj = parts.find(p => p.id === s.partId);
+                   const partCode = partObj?.code ? String(partObj.code).split('\n')[0] : null;
+
+                   if (clientName) extraDetails.push(`Client: ${clientName}`);
+                   if (partCode) extraDetails.push(`Mold: ${partCode}`);
+                   if (s.machine) extraDetails.push(`M/C: ${s.machine}`);
+                   if (s.requester) extraDetails.push(`PE: ${s.requester}`);
+                }
+
+                return (
+                  <div key={s.id} className="avoid-break border-2 border-gray-300 rounded-xl overflow-hidden shadow-sm mb-4">
+                     <div className="bg-[#1f2937] text-white p-2.5 flex justify-between items-center print-exact-color">
+                       <h2 className="font-bold text-sm uppercase truncate pr-4">รายการที่ {index + 1} : {getTypeLabel(s.type)}</h2>
+                       <div className="text-xs font-bold whitespace-nowrap bg-gray-600 px-2 py-0.5 rounded print-exact-color">
+                          {formatThaiDate(s.date)} {s.time ? `| เวลา: ${s.time}` : ''}
+                       </div>
+                     </div>
+                     
+                     <div className="p-3 bg-white border-b border-gray-200">
+                        <span className="font-bold text-gray-500 text-[10px] block mb-0.5">หัวข้องาน (Title):</span>
+                        <h3 className="font-bold text-[14px] text-blue-900">{s.title}</h3>
+                     </div>
+
+                     <div className="p-3 bg-white">
+                       <div className="flex gap-4 mb-2 pb-2 border-b border-gray-200">
+                          <div className="flex-1 text-[11px]">
+                             <span className="font-bold text-gray-500">สถานะ (Status):</span> {s.status === 'completed' ? <span className="font-bold text-green-700">✅ เสร็จสิ้น (Completed)</span> : <span className="font-bold text-orange-600">⏳ รอดำเนินการ (Pending)</span>}
+                          </div>
+                       </div>
+                       
+                       {extraDetails.length > 0 && (
+                          <div className="mb-2 text-[11px]">
+                             <span className="font-bold text-gray-500">ข้อมูลเพิ่มเติม (Info):</span> <span className="text-gray-800">{extraDetails.join(' • ')}</span>
+                          </div>
+                       )}
+
+                       <div className="mb-2 text-[11px]">
+                          <span className="font-bold text-gray-500 block mb-0.5">รายละเอียด / หมายเหตุ (Details):</span> 
+                          <div className="text-gray-800 leading-tight bg-gray-50 p-2 rounded border border-gray-100">{s.detail || '-'}</div>
+                       </div>
+
+                       {(s.proofImages || []).length > 0 && (
+                          <div className="mt-2 pt-2 border-t border-gray-200">
+                             <span className="font-bold text-gray-500 block mb-2 text-[11px]">รูปถ่ายหลักฐาน (Proof of Completion):</span>
+                             <div className="flex gap-2">
+                                {(s.proofImages || []).map(img => (
+                                   <img key={img.id} src={img.img} className="w-32 h-32 object-cover border-2 border-gray-300 rounded shadow-sm" alt="proof" />
+                                ))}
+                             </div>
+                          </div>
+                       )}
+                     </div>
+                  </div>
+                );
+             })}
+             
+             {selectedScheduleIds.length === 0 && (
+                <div className="text-center text-gray-500 py-10 font-bold border-2 border-dashed border-gray-300 rounded-lg">
+                   ไม่ได้เลือกรายการนัดหมายเพื่อพิมพ์ (No items selected)
+                </div>
+             )}
+          </div>
+        </div>
       </>
     );
   };
@@ -1068,10 +1165,14 @@ export default function App() {
 
             </div>
             
-            <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-2 bg-white relative min-h-[160px]">
-               <input type="file" accept="image/*" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" onChange={(e) => {
+            <div className={`flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-2 bg-white relative min-h-[160px]`}>
+               <input type="file" accept="image/*" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 disabled:cursor-not-allowed" onChange={(e) => {
                   if (e.target.files && e.target.files[0]) {
-                     compressImage(e.target.files[0], (base64) => setPartInput({...partInput, img: base64}));
+                     setIsLoadingData(true);
+                     compressImage(e.target.files[0], async (base64) => {
+                        setPartInput({...partInput, img: base64});
+                        setIsLoadingData(false);
+                     });
                   }
                }} />
                {partInput.img ? (
@@ -1157,7 +1258,6 @@ export default function App() {
     const headerTitleCode = (path.part?.code || '').split('\n')[0];
 
     const inHouseTrials = partTrials.filter(t => t.trialLocation !== 'outsource');
-    const outsourceTrials = partTrials.filter(t => t.trialLocation === 'outsource');
     
     const nextInHouseNo = inHouseTrials.length > 0 
         ? Math.max(...inHouseTrials.map(t => isNaN(Number(t.trialNo)) ? 0 : Number(t.trialNo))) + 1 
@@ -1782,7 +1882,7 @@ export default function App() {
           <div className="space-y-3 border-t pt-3 mt-3">
              <label className="block text-sm font-bold text-gray-800">แนวทางขั้นต่อไป / Action Plan</label>
              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-gray-50 p-2 rounded border">
-                <label className="flex items-center gap-2 text-sm cursor-pointer text-gray-700">
+                 <label className="flex items-center gap-2 text-sm cursor-pointer text-gray-700">
                    <input type="checkbox" className="w-4 h-4 text-blue-600" checked={formData.reqModifyMold} onChange={e => setFormData({...formData, reqModifyMold: e.target.checked})} />
                    แก้ไขแม่พิมพ์
                 </label>
@@ -1881,8 +1981,8 @@ export default function App() {
   const ReportView = () => {
     if (!path.part) return null;
     const allPartTrials = trials.filter(t => t.partId === path.part.id);
-    const [selectedTrialIds, setSelectedTrialIds] = useState(allPartTrials.map(t => t.id));
     
+    // === ประกอบร่างรูปภาพกลับเข้าตัว Report ทันที ===
     const partTrialsToReport = allPartTrials
       .filter(t => selectedTrialIds.includes(t.id))
       .map(t => restoreImages(t, reportImageMap));
@@ -1899,6 +1999,7 @@ export default function App() {
 
     return (
       <div className="space-y-4">
+        
         <div className="no-print bg-white p-4 rounded-lg shadow border-t-4 border-blue-500">
           <div className="flex justify-between items-center mb-3 border-b pb-2">
              <h3 className="font-bold text-gray-700 flex items-center"><Printer className="mr-2 w-5 h-5"/> เลือก Trial ที่ต้องการพิมพ์ Report:</h3>
@@ -1941,6 +2042,7 @@ export default function App() {
 
               return (
                 <div key={t.id} className={`avoid-break ${index !== 0 ? 'page-break-before mt-8' : ''}`}>
+                  
                   <div className="flex justify-end gap-2 mb-2 no-print">
                      <button onClick={() => handleExportPNG(containerId, exportName)} className="flex items-center gap-1 bg-indigo-600 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-indigo-700 shadow-sm">
                         <Image size={14}/> ดาวน์โหลด PNG
@@ -2174,6 +2276,7 @@ export default function App() {
         </div>
       </header>
 
+      {/* ให้ Component แต่ละหน้าจัดการเรื่อง Print เอง ไม่ต้องใส่ .no-print ครอบเพื่อป้องกันการพิมพ์เบิ้ลซ้ำ */}
       <main className="max-w-4xl mx-auto p-4 py-6 print:p-0 print:m-0 print:max-w-none print:w-full">
         {activeTab === 'projects' && view === 'clients' ? <div className="no-print">{ClientListView()}</div> : null}
         {activeTab === 'projects' && view === 'models' ? <div className="no-print">{ModelsView()}</div> : null}
@@ -2181,7 +2284,7 @@ export default function App() {
         {activeTab === 'projects' && view === 'trials' ? <div className="no-print">{TrialsView()}</div> : null}
         {activeTab === 'projects' && view === 'trial_form' ? <div className="no-print">{TrialForm()}</div> : null}
         {activeTab === 'projects' && view === 'report' ? ReportView() : null}
-        {activeTab === 'calendar' ? <div className="no-print">{CalendarView()}</div> : null}
+        {activeTab === 'calendar' ? CalendarView() : null}
       </main>
 
       {zoomedImg && (
