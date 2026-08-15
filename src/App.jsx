@@ -92,9 +92,10 @@ export const restoreImages = (obj, imageMap) => {
   return obj;
 };
 
-// === แก้ปัญหาจอขาวตอนปริ้นท์ ปลดล็อกความสูงกระดาษ ===
+// === แก้ปัญหาจอขาวตอนปริ้นท์ ปลดล็อกความสูงกระดาษ และซ่อน Header/Footer Browser ===
 const printStyles = `
-  @page { size: A4 portrait; margin: 10mm; }
+  /* บังคับ Margin กระดาษเป็น 0 เพื่อให้ Header/Footer ของ Browser ถูกซ่อนอัตโนมัติ */
+  @page { size: A4 portrait; margin: 0mm; }
   
   @media screen {
     .print-only { display: none !important; }
@@ -116,7 +117,14 @@ const printStyles = `
         display: none !important; 
     }
     
-    .print-only { display: block !important; width: 100%; max-width: 100%; }
+    /* ใส่ Padding ให้กล่อง Print แทน เพื่อไม่ให้เนื้อหาชิดขอบกระดาษเกินไปเพราะเราเซ็ต margin หน้ากระดาษเป็น 0 */
+    .print-only { 
+        display: block !important; 
+        width: 100%; 
+        max-width: 100%; 
+        padding: 10mm !important;
+        box-sizing: border-box !important;
+    }
     
     table.print-table { 
         width: 100% !important; 
@@ -510,6 +518,7 @@ export default function App() {
                </h2>
                <div className="flex flex-col gap-0.5 mt-1">
                  <p className="text-xs font-semibold text-gray-500">วันที่ทำรายการ: {formatThaiDate((new Date().toISOString() || '').split('T')[0])}</p>
+                 {/* === แสดงเวลาอัปเดตล่าสุด === */}
                  {bookingData.id && bookingData.updatedAt && (
                    <p className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 inline-block w-max">
                      🕒 อัปเดตล่าสุด: {bookingData.updatedAt}
@@ -551,6 +560,7 @@ export default function App() {
               <input type="text" className="w-full border p-2 rounded focus:ring-2 outline-none" placeholder="รายละเอียดงาน หรือข้อควรระวัง..." value={bookingData.detail} onChange={e => setBookingData({...bookingData, detail: e.target.value})} />
             </div>
 
+            {/* === แยกส่วนข้อมูลตามประเภทงาน === */}
             {bookingData.type === 'trial' ? (
               <div className="bg-yellow-50 p-3 rounded border border-yellow-200 grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
                  <div>
@@ -628,7 +638,7 @@ export default function App() {
                                     }
                                 };
                                 input.click();
-                             }} className={`text-xs bg-green-600 text-white px-3 py-1.5 rounded shadow font-bold hover:bg-green-700 flex items-center`}>
+                             }} className={`text-xs text-white px-3 py-1.5 rounded shadow font-bold flex items-center ${isUploadingProof ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}>
                                 {isUploadingProof ? 'กำลังอัปโหลด...' : <><Camera size={14} className="mr-1"/> เพิ่มรูปภาพ</>}
                              </button>
                           )}
@@ -1910,6 +1920,7 @@ export default function App() {
   const ReportView = () => {
     if (!path.part) return null;
     const allPartTrials = trials.filter(t => t.partId === path.part.id);
+    const [selectedTrialIds, setSelectedTrialIds] = useState(allPartTrials.map(t => t.id));
     
     const partTrialsToReport = allPartTrials
       .filter(t => selectedTrialIds.includes(t.id))
@@ -1969,7 +1980,7 @@ export default function App() {
               const exportName = `MEETING_PROBLEM_${(path.part?.code || '').split('\n')[0] || 'Unknown'}_TRIAL-${t.trialNo}`;
 
               return (
-                <div key={t.id} className={`w-full ${index !== 0 ? 'page-break-before mt-8 pt-4 border-t-2 border-dashed border-gray-400' : ''}`}>
+                <div key={t.id} className={`avoid-break ${index !== 0 ? 'page-break-before mt-8' : ''}`}>
                   
                   <div className="hide-on-print print:hidden no-print">
                      <div className="flex justify-end gap-2 mb-2">
