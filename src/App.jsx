@@ -262,6 +262,7 @@ export default function App() {
   const [compInput, setCompInput] = useState(null);
   const [formData, setFormData] = useState(null);
   
+  // สถานะนี้ถูกประกาศอยู่ตรงนี้แล้ว ปลอดภัยตามกฎ React
   const [selectedTrialIds, setSelectedTrialIds] = useState([]);
   const [selectedScheduleIds, setSelectedScheduleIds] = useState([]);
   const [includeCalendarInReport, setIncludeCalendarInReport] = useState(true);
@@ -518,7 +519,6 @@ export default function App() {
                </h2>
                <div className="flex flex-col gap-0.5 mt-1">
                  <p className="text-xs font-semibold text-gray-500">วันที่ทำรายการ: {formatThaiDate((new Date().toISOString() || '').split('T')[0])}</p>
-                 {/* === แสดงเวลาอัปเดตล่าสุด === */}
                  {bookingData.id && bookingData.updatedAt && (
                    <p className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 inline-block w-max">
                      🕒 อัปเดตล่าสุด: {bookingData.updatedAt}
@@ -560,7 +560,6 @@ export default function App() {
               <input type="text" className="w-full border p-2 rounded focus:ring-2 outline-none" placeholder="รายละเอียดงาน หรือข้อควรระวัง..." value={bookingData.detail} onChange={e => setBookingData({...bookingData, detail: e.target.value})} />
             </div>
 
-            {/* === แยกส่วนข้อมูลตามประเภทงาน === */}
             {bookingData.type === 'trial' ? (
               <div className="bg-yellow-50 p-3 rounded border border-yellow-200 grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
                  <div>
@@ -638,7 +637,7 @@ export default function App() {
                                     }
                                 };
                                 input.click();
-                             }} className={`text-xs text-white px-3 py-1.5 rounded shadow font-bold flex items-center ${isUploadingProof ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}>
+                             }} className={`text-xs bg-green-600 text-white px-3 py-1.5 rounded shadow font-bold flex items-center`}>
                                 {isUploadingProof ? 'กำลังอัปโหลด...' : <><Camera size={14} className="mr-1"/> เพิ่มรูปภาพ</>}
                              </button>
                           )}
@@ -1920,7 +1919,6 @@ export default function App() {
   const ReportView = () => {
     if (!path.part) return null;
     const allPartTrials = trials.filter(t => t.partId === path.part.id);
-    const [selectedTrialIds, setSelectedTrialIds] = useState(allPartTrials.map(t => t.id));
     
     const partTrialsToReport = allPartTrials
       .filter(t => selectedTrialIds.includes(t.id))
@@ -2354,7 +2352,7 @@ export default function App() {
         {activeTab === 'projects' && view === 'trials' ? <div className="no-print">{TrialsView()}</div> : null}
         {activeTab === 'projects' && view === 'trial_form' ? <div className="no-print">{TrialForm()}</div> : null}
         {activeTab === 'projects' && view === 'report' ? ReportView() : null}
-        {activeTab === 'calendar' ? CalendarView() : null}
+        {activeTab === 'calendar' ? <div className="no-print">{CalendarView()}</div> : null}
       </main>
 
       {zoomedImg && (
