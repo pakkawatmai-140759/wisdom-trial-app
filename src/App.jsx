@@ -92,7 +92,7 @@ export const restoreImages = (obj, imageMap) => {
   return obj;
 };
 
-// === แก้ปัญหาจอขาวตอนปริ้นท์ ปลดล็อกความสูงกระดาษ ===
+// === สไตล์สำหรับพิมพ์ PDF ===
 const printStyles = `
   @page { size: A4 portrait; margin: 10mm; }
   
@@ -445,39 +445,43 @@ export default function App() {
         const isDayOff = isPublicHoliday || isSunday;
         const isToday = dateStr === todayStr;
         
-        days.push(
-          <div key={d} className={`border-r border-b p-1 min-h-[80px] md:min-h-[100px] flex flex-col group relative transition-colors ${isDayOff ? 'bg-red-50 hover:bg-red-100' : 'bg-white hover:bg-blue-50'}`}>
-            <span className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full mb-1 ${isToday ? 'bg-blue-600 text-white shadow-md' : (isDayOff ? 'text-red-600' : 'text-gray-700')}`}>
-               {d}
-            </span>
-            <div className="flex-1 overflow-y-auto space-y-1">
-              {dayEvents.map(ev => {
-                let colorClass = "bg-gray-100 text-gray-800 border-gray-300";
-                if(ev.type === 'trial') colorClass = "bg-[#fff3c4] text-[#8c6d1f] border-[#fce988]"; 
-                if(ev.type === 'delivery') colorClass = "bg-[#6bb5ff] text-white border-[#4d9cf0]"; 
-                if(ev.type === 'meeting') colorClass = "bg-[#a3f0b6] text-[#2c7a3f] border-[#81e89b]"; 
-                if(ev.type === 'support') colorClass = "bg-[#fc9c42] text-white border-[#eb892d]"; 
-                
-                const isCompleted = ev.status === 'completed';
+        pushDayCell(d, dateStr, dayEvents, isToday, isDayOff);
+      }
 
-                return (
-                  <div 
-                    key={ev.id} 
-                    className={`text-[9px] md:text-[10px] leading-tight p-1 rounded border shadow-sm truncate cursor-pointer hover:opacity-80 transition-all ${isCompleted ? 'opacity-60 bg-gray-50 border-gray-200 text-gray-500' : colorClass}`} 
-                    onClick={() => handleEditSchedule(ev)}
-                  >
-                    <strong>
-                      {isCompleted && <span className="text-green-600 mr-1">✅</span>}
-                      {ev.time ? `${ev.time} ` : ''}{ev.title}
-                    </strong>
-                    {ev.detail && <span className="block opacity-80 truncate">{ev.detail}</span>}
-                  </div>
-                )
-              })}
+      function pushDayCell(d, dateStr, dayEvents, isToday, isDayOff) {
+          days.push(
+            <div key={d} className={`border-r border-b p-1 min-h-[80px] md:min-h-[100px] flex flex-col group relative transition-colors ${isDayOff ? 'bg-red-50 hover:bg-red-100' : 'bg-white hover:bg-blue-50'}`}>
+              <span className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full mb-1 ${isToday ? 'bg-blue-600 text-white shadow-md' : (isDayOff ? 'text-red-600' : 'text-gray-700')}`}>
+                 {d}
+              </span>
+              <div className="flex-1 overflow-y-auto space-y-1">
+                {dayEvents.map(ev => {
+                  let colorClass = "bg-gray-100 text-gray-800 border-gray-300";
+                  if(ev.type === 'trial') colorClass = "bg-[#fff3c4] text-[#8c6d1f] border-[#fce988]"; 
+                  if(ev.type === 'delivery') colorClass = "bg-[#6bb5ff] text-white border-[#4d9cf0]"; 
+                  if(ev.type === 'meeting') colorClass = "bg-[#a3f0b6] text-[#2c7a3f] border-[#81e89b]"; 
+                  if(ev.type === 'support') colorClass = "bg-[#fc9c42] text-white border-[#eb892d]"; 
+                  
+                  const isCompleted = ev.status === 'completed';
+
+                  return (
+                    <div 
+                      key={ev.id} 
+                      className={`text-[9px] md:text-[10px] leading-tight p-1 rounded border shadow-sm truncate cursor-pointer hover:opacity-80 transition-all ${isCompleted ? 'opacity-60 bg-gray-50 border-gray-200 text-gray-500' : colorClass}`} 
+                      onClick={() => handleEditSchedule(ev)}
+                    >
+                      <strong>
+                        {isCompleted && <span className="text-green-600 mr-1">✅</span>}
+                        {ev.time ? `${ev.time} ` : ''}{ev.title}
+                      </strong>
+                      {ev.detail && <span className="block opacity-80 truncate">{ev.detail}</span>}
+                    </div>
+                  )
+                })}
+              </div>
+              <button onClick={() => { setBookingData({...getInitialBookingData(), date: dateStr}); setIsBooking(true); }} className="no-print absolute top-1 right-1 opacity-0 group-hover:opacity-100 text-blue-500 hover:bg-blue-100 rounded p-0.5"><Plus size={14}/></button>
             </div>
-            <button onClick={() => { setBookingData({...getInitialBookingData(), date: dateStr}); setIsBooking(true); }} className="no-print absolute top-1 right-1 opacity-0 group-hover:opacity-100 text-blue-500 hover:bg-blue-100 rounded p-0.5"><Plus size={14}/></button>
-          </div>
-        );
+          );
       }
 
       return (
@@ -628,7 +632,7 @@ export default function App() {
                                     }
                                 };
                                 input.click();
-                             }} className={`text-xs text-white px-3 py-1.5 rounded shadow font-bold flex items-center ${isUploadingProof ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}>
+                             }} className={`text-xs bg-green-600 text-white px-3 py-1.5 rounded shadow font-bold flex items-center ${isUploadingProof ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}>
                                 {isUploadingProof ? 'กำลังอัปโหลด...' : <><Camera size={14} className="mr-1"/> เพิ่มรูปภาพ</>}
                              </button>
                           )}
@@ -1910,6 +1914,7 @@ export default function App() {
   const ReportView = () => {
     if (!path.part) return null;
     const allPartTrials = trials.filter(t => t.partId === path.part.id);
+    const [selectedTrialIds, setSelectedTrialIds] = useState(allPartTrials.map(t => t.id));
     
     const partTrialsToReport = allPartTrials
       .filter(t => selectedTrialIds.includes(t.id))
@@ -1969,7 +1974,7 @@ export default function App() {
               const exportName = `MEETING_PROBLEM_${(path.part?.code || '').split('\n')[0] || 'Unknown'}_TRIAL-${t.trialNo}`;
 
               return (
-                <div key={t.id} className={`avoid-break ${index !== 0 ? 'page-break-before mt-8' : ''}`}>
+                <div key={t.id} className={`w-full ${index !== 0 ? 'page-break-before mt-8 pt-4 border-t-2 border-dashed border-gray-400' : ''}`}>
                   
                   <div className="hide-on-print print:hidden no-print">
                      <div className="flex justify-end gap-2 mb-2">
@@ -2086,6 +2091,7 @@ export default function App() {
                             <td colSpan="2" className="text-center font-bold"></td>
                           </tr>
 
+                          {/* === PROBLEM & DEFECT === */}
                           <tr>
                             <td colSpan="6" className="font-bold text-center bg-red-100 text-red-900 py-2 print-exact-color uppercase">
                                PROBLEM & DEFECT DETAILS
@@ -2126,6 +2132,36 @@ export default function App() {
                              </tr>
                           )}
 
+                          {/* === ACTION PLAN === */}
+                          <tr>
+                            <td colSpan="6" className="font-bold text-center bg-gray-200 py-2 print-exact-color uppercase">
+                               ACTION PLAN & REMARKS (แผนดำเนินการและหมายเหตุ)
+                            </td>
+                          </tr>
+                          <tr>
+                            <td colSpan="6" className="p-2 border-black text-[11px]">
+                               <div className="flex flex-wrap gap-4 mb-2">
+                                  <span className="font-bold">Next Action:</span>
+                                  <span>{t.reqModifyMold ? '✅ แก้ไขแม่พิมพ์' : '⬜ แก้ไขแม่พิมพ์'}</span>
+                                  <span>{t.reqRetrial ? '✅ ปรับ Condition Trial ซ้ำ' : '⬜ ปรับ Condition Trial ซ้ำ'}</span>
+                                  <span>{t.reqJig ? '✅ จัดทำ Jig / อุปกรณ์เสริม' : '⬜ จัดทำ Jig / อุปกรณ์เสริม'}</span>
+                               </div>
+                               <div className="mb-2">
+                                  <span className="font-bold">รายละเอียด (Action Details): </span>
+                                  <span className="whitespace-pre-wrap">{t.makerAction || '-'}</span>
+                               </div>
+                               <div className="flex gap-6 mb-2">
+                                  <div><span className="font-bold">Delivery Date (แม่พิมพ์): </span>{formatThaiDate(t.deliveryDate)}</div>
+                                  <div><span className="font-bold">Next Trial Date: </span>{formatThaiDate(t.nextTrialDate)}</div>
+                               </div>
+                               <div className="border-t pt-2 mt-2 border-gray-300">
+                                  <span className="font-bold">Remarks (หมายเหตุ): </span>
+                                  <span className="whitespace-pre-wrap">{t.remarks || '-'}</span>
+                               </div>
+                            </td>
+                          </tr>
+
+                          {/* === ATTACHMENTS (8 รูปหลัก) === */}
                           <tr>
                             <td colSpan="6" className="font-bold text-center bg-gray-200 py-2 print-exact-color uppercase">
                                ATTACHMENTS (ภาพถ่ายหน้างาน)
@@ -2135,17 +2171,115 @@ export default function App() {
                           <tr>
                              <td colSpan="6" className="p-2 border-black">
                                 <div className="flex flex-wrap justify-center gap-2">
-                                  {(t.images || {}).setupClose && <div className="text-center w-[23%]"><img src={(t.images || {}).setupClose} className="h-20 w-full object-cover border border-gray-400"/><div className="text-[8px] mt-0.5">แม่พิมพ์ปิด</div></div>}
-                                  {(t.images || {}).setupOpen && <div className="text-center w-[23%]"><img src={(t.images || {}).setupOpen} className="h-20 w-full object-cover border border-gray-400"/><div className="text-[8px] mt-0.5">แม่พิมพ์เปิด</div></div>}
-                                  {(t.images || {}).cav && <div className="text-center w-[23%]"><img src={(t.images || {}).cav} className="h-20 w-full object-cover border border-gray-400"/><div className="text-[8px] mt-0.5">ฝั่ง Cavity</div></div>}
-                                  {(t.images || {}).core && <div className="text-center w-[23%]"><img src={(t.images || {}).core} className="h-20 w-full object-cover border border-gray-400"/><div className="text-[8px] mt-0.5">ฝั่ง Core</div></div>}
-                                  {(t.images || {}).coreEjector && <div className="text-center w-[23%]"><img src={(t.images || {}).coreEjector} className="h-20 w-full object-cover border border-gray-400"/><div className="text-[8px] mt-0.5">เช็คปลดงาน</div></div>}
-                                  {(t.images || {}).resin && <div className="text-center w-[23%]"><img src={(t.images || {}).resin} className="h-20 w-full object-cover border border-gray-400"/><div className="text-[8px] mt-0.5">กระสอบเม็ด</div></div>}
-                                  {(t.images || {}).machine && <div className="text-center w-[23%]"><img src={(t.images || {}).machine} className="h-20 w-full object-cover border border-gray-400"/><div className="text-[8px] mt-0.5">เครื่องจักร</div></div>}
-                                  {(t.images || {}).packing && <div className="text-center w-[23%]"><img src={(t.images || {}).packing} className="h-20 w-full object-cover border border-gray-400"/><div className="text-[8px] mt-0.5">Box / Packing</div></div>}
+                                  {(t.images || {}).setupClose && <div className="text-center w-[23%]"><img src={(t.images || {}).setupClose} className="h-24 w-full object-cover border border-gray-400"/><div className="text-[9px] mt-0.5 font-bold">แม่พิมพ์ปิด</div></div>}
+                                  {(t.images || {}).setupOpen && <div className="text-center w-[23%]"><img src={(t.images || {}).setupOpen} className="h-24 w-full object-cover border border-gray-400"/><div className="text-[9px] mt-0.5 font-bold">แม่พิมพ์เปิด</div></div>}
+                                  {(t.images || {}).cav && <div className="text-center w-[23%]"><img src={(t.images || {}).cav} className="h-24 w-full object-cover border border-gray-400"/><div className="text-[9px] mt-0.5 font-bold">ฝั่ง Cavity</div></div>}
+                                  {(t.images || {}).core && <div className="text-center w-[23%]"><img src={(t.images || {}).core} className="h-24 w-full object-cover border border-gray-400"/><div className="text-[9px] mt-0.5 font-bold">ฝั่ง Core</div></div>}
+                                  {(t.images || {}).coreEjector && <div className="text-center w-[23%]"><img src={(t.images || {}).coreEjector} className="h-24 w-full object-cover border border-gray-400"/><div className="text-[9px] mt-0.5 font-bold">เช็คปลดงาน</div></div>}
+                                  {(t.images || {}).resin && <div className="text-center w-[23%]"><img src={(t.images || {}).resin} className="h-24 w-full object-cover border border-gray-400"/><div className="text-[9px] mt-0.5 font-bold">กระสอบเม็ดพลาสติก</div></div>}
+                                  {(t.images || {}).machine && <div className="text-center w-[23%]"><img src={(t.images || {}).machine} className="h-24 w-full object-cover border border-gray-400"/><div className="text-[9px] mt-0.5 font-bold">เครื่องจักร</div></div>}
+                                  {(t.images || {}).packing && <div className="text-center w-[23%]"><img src={(t.images || {}).packing} className="h-24 w-full object-cover border border-gray-400"/><div className="text-[9px] mt-0.5 font-bold">Box / Packing</div></div>}
                                 </div>
                              </td>
                           </tr>
+
+                          {/* === EQUIPMENT IMAGES === */}
+                          {(t.equipmentImages || []).length > 0 && (
+                             <>
+                               <tr>
+                                 <td colSpan="6" className="font-bold text-center bg-gray-200 py-2 print-exact-color uppercase border-t-2 border-black">
+                                    อุปกรณ์เสริม (Equipment)
+                                 </td>
+                               </tr>
+                               <tr>
+                                 <td colSpan="6" className="p-2 border-black">
+                                    <div className="flex flex-wrap gap-2 justify-center">
+                                       {(t.equipmentImages || []).map(eq => (
+                                          eq.img && (
+                                             <div key={eq.id} className="text-center w-[23%]">
+                                                <img src={eq.img} className="h-24 w-full object-cover border border-gray-400" alt="Equipment"/>
+                                                <div className="text-[9px] mt-0.5 font-bold">{eq.note || '-'}</div>
+                                             </div>
+                                          )
+                                       ))}
+                                    </div>
+                                 </td>
+                               </tr>
+                             </>
+                          )}
+
+                          {/* === ATMOSPHERE IMAGES === */}
+                          {(t.atmosphereImages || []).length > 0 && (
+                             <>
+                               <tr>
+                                 <td colSpan="6" className="font-bold text-center bg-gray-200 py-2 print-exact-color uppercase border-t-2 border-black">
+                                    บรรยากาศทดลองฉีด (Atmosphere)
+                                 </td>
+                               </tr>
+                               <tr>
+                                 <td colSpan="6" className="p-2 border-black">
+                                    <div className="flex flex-wrap gap-2 justify-center">
+                                       {(t.atmosphereImages || []).map(at => (
+                                          at.img && (
+                                             <div key={at.id} className="text-center w-[23%]">
+                                                <img src={at.img} className="h-24 w-full object-cover border border-gray-400" alt="Atmosphere"/>
+                                             </div>
+                                          )
+                                       ))}
+                                    </div>
+                                 </td>
+                               </tr>
+                             </>
+                          )}
+
+                          {/* === MONITOR IMAGES === */}
+                          {(t.monitorImages || []).length > 0 && (
+                             <>
+                               <tr>
+                                 <td colSpan="6" className="font-bold text-center bg-gray-200 py-2 print-exact-color uppercase border-t-2 border-black">
+                                    Condition หน้าจอมอนิเตอร์ (Monitor)
+                                 </td>
+                               </tr>
+                               <tr>
+                                 <td colSpan="6" className="p-2 border-black">
+                                    <div className="flex flex-wrap gap-2 justify-center">
+                                       {(t.monitorImages || []).map(mn => (
+                                          mn.img && (
+                                             <div key={mn.id} className="text-center w-[48%] flex gap-2 items-center border border-gray-300 p-1 rounded bg-gray-50">
+                                                <img src={mn.img} className="h-24 w-1/2 object-cover border border-gray-400" alt="Monitor"/>
+                                                <div className="text-[9px] w-1/2 text-left font-semibold">{mn.note || '-'}</div>
+                                             </div>
+                                          )
+                                       ))}
+                                    </div>
+                                 </td>
+                               </tr>
+                             </>
+                          )}
+
+                          {/* === MEETING IMAGES === */}
+                          {(t.meetingImages || []).length > 0 && (
+                             <>
+                               <tr>
+                                 <td colSpan="6" className="font-bold text-center bg-gray-200 py-2 print-exact-color uppercase border-t-2 border-black">
+                                    ภาพบรรยากาศการประชุม (Meeting)
+                                 </td>
+                               </tr>
+                               <tr>
+                                 <td colSpan="6" className="p-2 border-black">
+                                    <div className="flex flex-wrap gap-2 justify-center">
+                                       {(t.meetingImages || []).map(mt => (
+                                          mt.img && (
+                                             <div key={mt.id} className="text-center w-[23%]">
+                                                <img src={mt.img} className="h-24 w-full object-cover border border-gray-400" alt="Meeting"/>
+                                             </div>
+                                          )
+                                       ))}
+                                    </div>
+                                 </td>
+                               </tr>
+                             </>
+                          )}
 
                         </tbody>
                      </table>
@@ -2206,7 +2340,6 @@ export default function App() {
         </div>
       </header>
 
-      {/* ให้ Component แต่ละหน้าจัดการเรื่อง Print เอง ไม่ต้องใส่ .no-print ครอบเพื่อป้องกันการพิมพ์เบิ้ลซ้ำ */}
       <main className="max-w-4xl mx-auto p-4 py-6 print:p-0 print:m-0 print:max-w-none print:w-full">
         {activeTab === 'projects' && view === 'clients' ? <div className="no-print">{ClientListView()}</div> : null}
         {activeTab === 'projects' && view === 'models' ? <div className="no-print">{ModelsView()}</div> : null}
@@ -2214,7 +2347,7 @@ export default function App() {
         {activeTab === 'projects' && view === 'trials' ? <div className="no-print">{TrialsView()}</div> : null}
         {activeTab === 'projects' && view === 'trial_form' ? <div className="no-print">{TrialForm()}</div> : null}
         {activeTab === 'projects' && view === 'report' ? ReportView() : null}
-        {activeTab === 'calendar' ? CalendarView() : null}
+        {activeTab === 'calendar' ? <div className="no-print">{CalendarView()}</div> : null}
       </main>
 
       {zoomedImg && (
