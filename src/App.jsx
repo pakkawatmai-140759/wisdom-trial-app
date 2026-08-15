@@ -129,7 +129,6 @@ const printStyles = `
     td { page-break-inside: avoid !important; }
     img { max-width: 100% !important; page-break-inside: avoid !important; }
     
-    /* เอาคำสั่งบังคับ !important ออกจาก flex ป้องกันการไปตีกับคำสั่งซ่อนปุ่ม */
     .flex { display: flex; }
     .flex-row { flex-direction: row; }
     .flex-col { flex-direction: column; }
@@ -269,6 +268,7 @@ export default function App() {
   const [compInput, setCompInput] = useState(null);
   const [formData, setFormData] = useState(null);
   
+  // === ย้าย useState ทั้งหมดมาไว้ตรงนี้ ===
   const [selectedTrialIds, setSelectedTrialIds] = useState([]);
   const [selectedScheduleIds, setSelectedScheduleIds] = useState([]);
   const [includeCalendarInReport, setIncludeCalendarInReport] = useState(true);
@@ -804,7 +804,6 @@ export default function App() {
             </div>
           </div>
         </div>
-
       </>
     );
   };
@@ -1809,7 +1808,7 @@ export default function App() {
 
           <div className="mt-4 border-t pt-4">
              <div className="flex justify-between items-center mb-2">
-                <label className="font-semibold text-gray-700 text-sm">ภาพบรรยากาศการประชุม (Meeting & Discussion)</label>
+               <label className="font-semibold text-gray-700 text-sm">ภาพบรรยากาศการประชุม (Meeting & Discussion)</label>
                 <button onClick={() => setFormData({...formData, meetingImages: [...(formData.meetingImages || []), { id: Date.now() + Math.random(), img: null }]})} className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded shadow-sm">+ เพิ่มรูปประชุม</button>
              </div>
              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -1948,16 +1947,14 @@ export default function App() {
               return (
                 <div key={t.id} className={`avoid-break ${index !== 0 ? 'page-break-before mt-8' : ''}`}>
                   
-                  {/* ห่อด้วย div ที่ตั้งคลาสซ่อนสำหรับตอนพิมพ์แบบเฉพาะเจาะจงสุดๆ */}
-                  <div className="hide-on-print print:hidden no-print">
-                     <div className="flex justify-end gap-2 mb-2">
-                        <button onClick={() => handleExportPNG(containerId, exportName)} className="flex items-center gap-1 bg-indigo-600 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-indigo-700 shadow-sm">
-                           <Image size={14}/> ดาวน์โหลด PNG
-                        </button>
-                        <button onClick={() => handleExportExcel(tableId, exportName)} className="flex items-center gap-1 bg-green-600 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-green-700 shadow-sm">
-                           <Download size={14}/> ดาวน์โหลด Excel
-                        </button>
-                     </div>
+                  {/* ห่อด้วยกล่องที่มีคำสั่งซ่อนตอนปริ้นท์แบบรุนแรง (no-print) */}
+                  <div className="flex justify-end gap-2 mb-2 no-print">
+                     <button onClick={() => handleExportPNG(containerId, exportName)} className="flex items-center gap-1 bg-indigo-600 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-indigo-700 shadow-sm">
+                        <Image size={14}/> ดาวน์โหลด PNG
+                     </button>
+                     <button onClick={() => handleExportExcel(tableId, exportName)} className="flex items-center gap-1 bg-green-600 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-green-700 shadow-sm">
+                        <Download size={14}/> ดาวน์โหลด Excel
+                     </button>
                   </div>
 
                   <div id={containerId} className="bg-white p-2 border border-gray-300 md:border-none print:border-none">
