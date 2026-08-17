@@ -92,10 +92,10 @@ export const restoreImages = (obj, imageMap) => {
   return obj;
 };
 
-// === แก้ปัญหาจอขาวตอนปริ้นท์ ปลดล็อกความสูงกระดาษ และซ่อน Header/Footer Browser ===
+// === แก้ปัญหาจอขาวตอนปริ้นท์ ปลดล็อกความสูงกระดาษ เปลี่ยนเป็นแนวนอน ===
 const printStyles = `
-  /* บังคับ Margin กระดาษเป็น 0 เพื่อให้ Header/Footer ของ Browser ถูกซ่อนอัตโนมัติ */
-  @page { size: A4 portrait; margin: 0mm; }
+  /* บังคับกระดาษเป็นแนวนอน (Landscape) และ Margin 0 เพื่อซ่อน Header/Footer ของ Browser */
+  @page { size: A4 landscape; margin: 0mm; }
   
   @media screen {
     .print-only { display: none !important; }
@@ -117,7 +117,7 @@ const printStyles = `
         display: none !important; 
     }
     
-    /* ใส่ Padding ให้กล่อง Print แทน เพื่อไม่ให้เนื้อหาชิดขอบกระดาษเกินไปเพราะเราเซ็ต margin หน้ากระดาษเป็น 0 */
+    /* ใส่ Padding ให้กล่อง Print แทน เพื่อไม่ให้เนื้อหาชิดขอบกระดาษเกินไป */
     .print-only { 
         display: block !important; 
         width: 100%; 
@@ -262,7 +262,6 @@ export default function App() {
   const [compInput, setCompInput] = useState(null);
   const [formData, setFormData] = useState(null);
   
-  // สถานะนี้ถูกประกาศอยู่ตรงนี้แล้ว ปลอดภัยตามกฎ React
   const [selectedTrialIds, setSelectedTrialIds] = useState([]);
   const [selectedScheduleIds, setSelectedScheduleIds] = useState([]);
   const [includeCalendarInReport, setIncludeCalendarInReport] = useState(true);
@@ -519,6 +518,7 @@ export default function App() {
                </h2>
                <div className="flex flex-col gap-0.5 mt-1">
                  <p className="text-xs font-semibold text-gray-500">วันที่ทำรายการ: {formatThaiDate((new Date().toISOString() || '').split('T')[0])}</p>
+                 {/* === แสดงเวลาอัปเดตล่าสุด === */}
                  {bookingData.id && bookingData.updatedAt && (
                    <p className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 inline-block w-max">
                      🕒 อัปเดตล่าสุด: {bookingData.updatedAt}
@@ -560,6 +560,7 @@ export default function App() {
               <input type="text" className="w-full border p-2 rounded focus:ring-2 outline-none" placeholder="รายละเอียดงาน หรือข้อควรระวัง..." value={bookingData.detail} onChange={e => setBookingData({...bookingData, detail: e.target.value})} />
             </div>
 
+            {/* === แยกส่วนข้อมูลตามประเภทงาน === */}
             {bookingData.type === 'trial' ? (
               <div className="bg-yellow-50 p-3 rounded border border-yellow-200 grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
                  <div>
@@ -1919,6 +1920,7 @@ export default function App() {
   const ReportView = () => {
     if (!path.part) return null;
     const allPartTrials = trials.filter(t => t.partId === path.part.id);
+    const [selectedTrialIds, setSelectedTrialIds] = useState(allPartTrials.map(t => t.id));
     
     const partTrialsToReport = allPartTrials
       .filter(t => selectedTrialIds.includes(t.id))
@@ -2344,7 +2346,6 @@ export default function App() {
         </div>
       </header>
 
-      {/* ให้ Component แต่ละหน้าจัดการเรื่อง Print เอง ไม่ต้องใส่ .no-print ครอบเพื่อป้องกันการพิมพ์เบิ้ลซ้ำ */}
       <main className="max-w-4xl mx-auto p-4 py-6 print:p-0 print:m-0 print:max-w-none print:w-full">
         {activeTab === 'projects' && view === 'clients' ? <div className="no-print">{ClientListView()}</div> : null}
         {activeTab === 'projects' && view === 'models' ? <div className="no-print">{ModelsView()}</div> : null}
