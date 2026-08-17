@@ -92,10 +92,10 @@ export const restoreImages = (obj, imageMap) => {
   return obj;
 };
 
-// === แก้ปัญหาจอขาวตอนปริ้นท์ ปลดล็อกความสูงกระดาษ เปลี่ยนเป็นแนวนอน ===
+// === แก้ปัญหาจอขาวตอนปริ้นท์ และ บังคับเป็น แนวนอน (Landscape) ===
 const printStyles = `
-  /* บังคับกระดาษเป็นแนวนอน (Landscape) และ Margin 0 เพื่อซ่อน Header/Footer ของ Browser */
-  @page { size: A4 landscape; margin: 0mm; }
+  /* บังคับกระดาษเป็นแนวนอน (Landscape) */
+  @page { size: A4 landscape; margin: 8mm; }
   
   @media screen {
     .print-only { display: none !important; }
@@ -117,12 +117,10 @@ const printStyles = `
         display: none !important; 
     }
     
-    /* ใส่ Padding ให้กล่อง Print แทน เพื่อไม่ให้เนื้อหาชิดขอบกระดาษเกินไป */
     .print-only { 
         display: block !important; 
         width: 100%; 
         max-width: 100%; 
-        padding: 10mm !important;
         box-sizing: border-box !important;
     }
     
@@ -134,6 +132,7 @@ const printStyles = `
         border: 1px solid black !important; 
     }
     
+    /* ป้องกันจอขาวด้วยการอนุญาตให้แบ่งหน้าได้ตามธรรมชาติ */
     tr { page-break-inside: auto !important; page-break-after: auto !important; }
     td { page-break-inside: auto !important; }
     
@@ -262,6 +261,7 @@ export default function App() {
   const [compInput, setCompInput] = useState(null);
   const [formData, setFormData] = useState(null);
   
+  // สถานะนี้ถูกประกาศอยู่ตรงนี้แล้ว ปลอดภัยตามกฎ React ไม่มีจอขาว!
   const [selectedTrialIds, setSelectedTrialIds] = useState([]);
   const [selectedScheduleIds, setSelectedScheduleIds] = useState([]);
   const [includeCalendarInReport, setIncludeCalendarInReport] = useState(true);
