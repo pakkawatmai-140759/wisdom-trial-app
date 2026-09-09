@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   FolderKanban, Settings, Box, Activity, Camera, Plus, 
