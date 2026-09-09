@@ -92,11 +92,11 @@ export const restoreImages = (obj, imageMap) => {
   return obj;
 };
 
-// === แก้ปัญหาจอขาวตอนปริ้นท์ และ บังคับเป็น แนวนอน (Landscape) ===
+// === แก้ปัญหาจอขาวตอนปริ้นท์ และ บังคับแนวตั้ง (Portrait) ===
 const printStyles = `
-  /* บังคับกระดาษเป็นแนวนอน (Landscape) */
-  @page { size: A4 landscape; margin: 8mm; }
-   
+  /* บังคับกระดาษเป็นแนวตั้ง (Portrait) */
+  @page { size: A4 portrait; margin: 8mm; }
+  
   @media screen {
     .print-only { display: none !important; }
   }
@@ -112,18 +112,18 @@ const printStyles = `
         margin: 0; 
         padding: 0; 
     }
-     
+    
     .no-print, .hide-on-print, .print\\:hidden, header { 
         display: none !important; 
     }
-     
+    
     .print-only { 
         display: block !important; 
         width: 100%; 
         max-width: 100%; 
         box-sizing: border-box !important;
     }
-     
+    
     table.print-table { 
         width: 100% !important; 
         border-collapse: collapse !important; 
@@ -131,13 +131,13 @@ const printStyles = `
     table.print-table td, table.print-table th { 
         border: 1px solid black !important; 
     }
-     
+    
     /* ป้องกันจอขาวด้วยการอนุญาตให้แบ่งหน้าได้ตามธรรมชาติ */
     tr { page-break-inside: auto !important; page-break-after: auto !important; }
     td { page-break-inside: auto !important; }
-     
+    
     .page-break-before { page-break-before: always !important; }
-     
+    
     img { max-width: 100% !important; page-break-inside: avoid !important; }
   }
 `;
@@ -161,16 +161,6 @@ const DEFECT_TYPES = [
   "Flow Mark (รอยลายน้ำ)", "Silver Streak (รอยเงิน)", "Weld Line (รอยประสาน)",
   "Burn Mark (รอยไหม้)", "Warpage (บิดงอ)", "Color Difference (สีเพี้ยน)", "Scratch (รอยขีดข่วน)", "Other (อื่นๆ)"
 ];
-
-const checkNgByTolerance = (act, std, plus, minus) => {
-  if (act === '' || act === undefined || std === '' || std === undefined) return false;
-  const a = parseFloat(act);
-  const s = parseFloat(std);
-  const p = parseFloat(plus || 0);
-  const m = parseFloat(minus || 0);
-  if (isNaN(a) || isNaN(s)) return false;
-  return a < (s - m) || a > (s + p);
-};
 
 const ActionButtons = ({ id, onEdit, onDelete, isEditing, onSave, onCancel, confirmDeleteId, setConfirmDeleteId }) => {
   if (isEditing) {
@@ -243,11 +233,11 @@ export default function App() {
   const [trials, setTrials] = useState([]);
   const [schedules, setSchedules] = useState([]);
   
-  // State สำหรับบันทึกข้อความประจำเดือน (เก็บแยกตามปี-เดือน เช่น "2026-8": "ข้อความ...")
+  // State สำหรับช่องโน้ตประจำเดือน
   const [monthlyNotes, setMonthlyNotes] = useState({});
   
   const [isBooking, setIsBooking] = useState(false);
-   
+  
   const getInitialBookingData = () => ({ 
     id: null, date: '', time: '', type: 'trial', title: '', detail: '', clientId: '', partId: '', machine: '', requester: '', location: '',
     reqMachineSent: false, prodApproved: false, planStatus: 'on_time', rescheduleReason: '',
@@ -263,14 +253,14 @@ export default function App() {
   const [partInput, setPartInput] = useState({});
   const [compInput, setCompInput] = useState(null);
   const [formData, setFormData] = useState(null);
-   
+  
   const [selectedTrialIds, setSelectedTrialIds] = useState([]);
   const [selectedScheduleIds, setSelectedScheduleIds] = useState([]);
   const [includeCalendarInReport, setIncludeCalendarInReport] = useState(true);
 
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
-   
+  
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(false); 
   const [reportImageMap, setReportImageMap] = useState({});
@@ -292,12 +282,11 @@ export default function App() {
     const unsubS = onSnapshot(doc(db, 'wisdom', 'schedules'), d => {
         if(d.exists()) setSchedules(d.data().list || []); else setDoc(doc(db, 'wisdom', 'schedules'), {list: []});
     });
-    
-    // โหลด Note ประจำเดือนจาก Firestore (ถ้ามีเก็บไว้ หรือใช้ Local State)
+    // โหลดโน้ตประจำเดือนจาก Firestore (ถ้ามีเก็บไว้)
     const unsubNote = onSnapshot(doc(db, 'wisdom', 'monthlyNotes'), d => {
         if(d.exists()) setMonthlyNotes(d.data().notes || {});
     });
-     
+    
     const unsubP = onSnapshot(collection(db, 'parts'), snap => setParts(snap.docs.map(d=>d.data())));
     const unsubT = onSnapshot(collection(db, 'trials'), snap => setTrials(snap.docs.map(d=>d.data())));
 
@@ -308,9 +297,10 @@ export default function App() {
   const updateModels = (newList) => { setModels(newList); setDoc(doc(db, 'wisdom', 'models'), { list: newList }); };
   const updateSchedules = (newList) => { setSchedules(newList); setDoc(doc(db, 'wisdom', 'schedules'), { list: newList }); };
 
-  const handleSaveMonthlyNote = (noteText) => {
+  // ฟังก์ชันบันทึกโน้ตประจำเดือนอัตโนมัติ
+  const handleSaveMonthlyNote = (newText) => {
     const key = `${currentYear}-${currentMonth}`;
-    const updatedNotes = { ...monthlyNotes, [key]: noteText };
+    const updatedNotes = { ...monthlyNotes, [key]: newText };
     setMonthlyNotes(updatedNotes);
     setDoc(doc(db, 'wisdom', 'monthlyNotes'), { notes: updatedNotes }, { merge: true });
   };
@@ -337,7 +327,7 @@ export default function App() {
     setAddingId(null); setEditingId(null); setConfirmDeleteId(null); setInputValue(''); 
     setPartInput({}); setCompInput(null); setEditingTrialId(null); setIsBooking(false); 
   };
-   
+  
   const goBack = () => {
     resetForms();
     if (view === 'models') setView('clients');
@@ -375,11 +365,8 @@ export default function App() {
     }
   };
 
-  // === คอมโพเนนต์ CalendarView แบบ Grid 2 ฝั่ง (ซ้าย: ปฏิทินและตารางรายการ, ขวา: Note ประจำเดือน) ===
   const CalendarView = () => {
     const monthNamesThai = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
-    const currentNoteKey = `${currentYear}-${currentMonth}`;
-    const currentNoteValue = monthlyNotes[currentNoteKey] || '';
 
     const handlePrevMonth = () => {
       if (currentMonth === 0) { setCurrentMonth(11); setCurrentYear(currentYear - 1); } 
@@ -433,6 +420,16 @@ export default function App() {
       window.scrollTo(0, 0); 
     };
 
+    const getTypeLabel = (typeCode) => {
+       switch(typeCode){
+          case 'trial': return 'Trial / งานฉีด';
+          case 'delivery': return 'งานจัดส่ง (Delivery)';
+          case 'support': return 'Support / Jig';
+          case 'meeting': return 'นัดประชุม (Meeting)';
+          default: return typeCode;
+       }
+    };
+
     const currentMonthSchedules = [...schedules]
       .filter(s => {
          if (!s.date || typeof s.date !== 'string') return false;
@@ -446,23 +443,23 @@ export default function App() {
       const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
       const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay(); 
       const todayStr = new Date().toISOString().split('T')[0];
-       
+      
       let blanks = [];
-      for (let i = 0; i < firstDayOfMonth; i++) blanks.push(<div key={`blank-${i}`} className="bg-gray-100/50 border-r border-b p-1 min-h-[70px]"></div>);
-       
+      for (let i = 0; i < firstDayOfMonth; i++) blanks.push(<div key={`blank-${i}`} className="bg-gray-100/50 border-r border-b p-1 min-h-[80px]"></div>);
+      
       let days = [];
       for (let d = 1; d <= daysInMonth; d++) {
         const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
         const dayEvents = schedules.filter(s => s.date === dateStr);
-         
+        
         const isPublicHoliday = PUBLIC_HOLIDAYS.includes(dateStr);
         const isSunday = new Date(currentYear, currentMonth, d).getDay() === 0;
         const isDayOff = isPublicHoliday || isSunday;
         const isToday = dateStr === todayStr;
-         
+        
         days.push(
-          <div key={d} className={`border-r border-b p-1 min-h-[75px] md:min-h-[90px] flex flex-col group relative transition-colors ${isDayOff ? 'bg-red-50 hover:bg-red-100' : 'bg-white hover:bg-blue-50'}`}>
-            <span className={`text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full mb-1 ${isToday ? 'bg-blue-600 text-white shadow-md' : (isDayOff ? 'text-red-600' : 'text-gray-700')}`}>
+          <div key={d} className={`border-r border-b p-1 min-h-[80px] md:min-h-[100px] flex flex-col group relative transition-colors ${isDayOff ? 'bg-red-50 hover:bg-red-100' : 'bg-white hover:bg-blue-50'}`}>
+            <span className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full mb-1 ${isToday ? 'bg-blue-600 text-white shadow-md' : (isDayOff ? 'text-red-600' : 'text-gray-700')}`}>
                {d}
             </span>
             <div className="flex-1 overflow-y-auto space-y-1">
@@ -472,7 +469,7 @@ export default function App() {
                 if(ev.type === 'delivery') colorClass = "bg-[#6bb5ff] text-white border-[#4d9cf0]"; 
                 if(ev.type === 'meeting') colorClass = "bg-[#a3f0b6] text-[#2c7a3f] border-[#81e89b]"; 
                 if(ev.type === 'support') colorClass = "bg-[#fc9c42] text-white border-[#eb892d]"; 
-                 
+                
                 const isCompleted = ev.status === 'completed';
 
                 return (
@@ -496,9 +493,9 @@ export default function App() {
       }
 
       return (
-        <div className="border border-gray-300 rounded-lg overflow-hidden shadow-sm bg-white">
-          <div className="grid grid-cols-7 bg-[#2b4c9b] text-white text-center text-[10px] md:text-xs font-bold divide-x divide-gray-400">
-            <div className="py-2 bg-[#d63434]">อาทิตย์</div>
+        <div className="border border-gray-300 rounded-lg overflow-hidden shadow-sm bg-white mb-6 print-exact-color">
+          <div className="grid grid-cols-7 bg-[#2b4c9b] text-white text-center text-[10px] md:text-xs font-bold divide-x divide-gray-400 print-exact-color">
+            <div className="py-2 bg-[#d63434] print-exact-color">อาทิตย์</div>
             <div className="py-2">จันทร์</div>
             <div className="py-2">อังคาร</div>
             <div className="py-2">พุธ</div>
@@ -534,7 +531,7 @@ export default function App() {
              </div>
              <button onClick={() => { setIsBooking(false); setBookingData(getInitialBookingData()); }} className="text-gray-400 hover:text-red-500"><X size={24}/></button>
           </div>
-           
+          
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
@@ -560,7 +557,7 @@ export default function App() {
               <label className="block text-sm font-semibold text-gray-700 mb-1">หัวข้องานสั้นๆ (Title)</label>
               <input type="text" className="w-full border p-2 rounded focus:ring-2 outline-none" placeholder="เช่น INJ SHROUD COMP..." value={bookingData.title} onChange={e => setBookingData({...bookingData, title: e.target.value})} />
             </div>
-             
+            
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">รายละเอียดเพิ่มเติม / หมายเหตุ</label>
               <input type="text" className="w-full border p-2 rounded focus:ring-2 outline-none" placeholder="รายละเอียดงาน หรือข้อควรระวัง..." value={bookingData.detail} onChange={e => setBookingData({...bookingData, detail: e.target.value})} />
@@ -614,19 +611,19 @@ export default function App() {
                <h4 className="text-sm font-bold text-gray-800 border-b border-gray-300 pb-1 mb-3">สถานะความสำเร็จของงาน (Job Status)</h4>
                
                <div className="flex gap-4 mb-3">
-                    <label className={`flex flex-1 items-center justify-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-all ${bookingData.status === 'pending' ? 'bg-white border-blue-500 shadow-md text-blue-800 font-bold' : 'bg-gray-100 border-gray-200 text-gray-500 hover:bg-gray-50'}`}>
-                        <input type="radio" className="hidden" checked={bookingData.status === 'pending'} onChange={() => setBookingData({...bookingData, status: 'pending'})} />
-                        ⏳ รอดำเนินการ
-                    </label>
-                    <label className={`flex flex-1 items-center justify-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-all ${bookingData.status === 'completed' ? 'bg-green-50 border-green-500 shadow-md text-green-800 font-bold' : 'bg-gray-100 border-gray-200 text-gray-500 hover:bg-gray-50'}`}>
-                        <input type="radio" className="hidden" checked={bookingData.status === 'completed'} onChange={() => setBookingData({...bookingData, status: 'completed'})} />
-                        ✅ เสร็จสิ้นแล้ว
-                    </label>
+                   <label className={`flex flex-1 items-center justify-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-all ${bookingData.status === 'pending' ? 'bg-white border-blue-500 shadow-md text-blue-800 font-bold' : 'bg-gray-100 border-gray-200 text-gray-500 hover:bg-gray-50'}`}>
+                       <input type="radio" className="hidden" checked={bookingData.status === 'pending'} onChange={() => setBookingData({...bookingData, status: 'pending'})} />
+                       ⏳ รอดำเนินการ
+                   </label>
+                   <label className={`flex flex-1 items-center justify-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-all ${bookingData.status === 'completed' ? 'bg-green-50 border-green-500 shadow-md text-green-800 font-bold' : 'bg-gray-100 border-gray-200 text-gray-500 hover:bg-gray-50'}`}>
+                       <input type="radio" className="hidden" checked={bookingData.status === 'completed'} onChange={() => setBookingData({...bookingData, status: 'completed'})} />
+                       ✅ เสร็จสิ้นแล้ว
+                   </label>
                </div>
 
                {bookingData.status === 'completed' && (
-                    <div className="p-3 bg-white border border-green-200 rounded-lg animate-in fade-in">
-                        <div className="flex justify-between items-center mb-3">
+                   <div className="p-3 bg-white border border-green-200 rounded-lg animate-in fade-in">
+                       <div className="flex justify-between items-center mb-3">
                           <label className="text-sm font-bold text-green-800">แนบรูปถ่ายหลักฐานปิดงาน (สูงสุด 3 รูป)</label>
                           {(bookingData.proofImages || []).length < 3 && (
                              <button type="button" onClick={() => {
@@ -643,37 +640,42 @@ export default function App() {
                                      }
                                  };
                                  input.click();
-                              }} className="text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded shadow font-bold flex items-center">
-                                 {isUploadingProof ? 'กำลังอัปโหลด...' : <><Camera size={14} className="mr-1"/> เพิ่มรูปภาพ</>}
-                              </button>
+                             }} className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded shadow font-bold flex items-center">
+                                 {isUploadingProof ? 'กำลังอัปโหลด...' : <><Camera size={14} className="mr-1"/> เพิ่มรูปหลักฐาน</>}
+                             </button>
                           )}
-                        </div>
-                        <div className="grid grid-cols-3 gap-2">
-                           {(bookingData.proofImages || []).map((imgObj, idx) => (
-                              <div key={imgObj.id || idx} className="relative h-24 border rounded overflow-hidden bg-gray-100 group">
-                                 <img src={imgObj.img} alt="Proof" className="w-full h-full object-cover" />
-                                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                    <button type="button" onClick={() => setZoomedImg(imgObj.img)} className="p-1 bg-white rounded text-blue-600"><ZoomIn size={14}/></button>
-                                    <button type="button" onClick={() => setBookingData(prev => ({...prev, proofImages: prev.proofImages.filter((_, i) => i !== idx)}))} className="p-1 bg-white rounded text-red-600"><Trash2 size={14}/></button>
-                                 </div>
-                              </div>
+                       </div>
+                       <div className="grid grid-cols-3 gap-2">
+                           {(bookingData.proofImages || []).map((pImg, idx) => (
+                               <div key={pImg.id || idx} className="relative h-24 border rounded overflow-hidden bg-gray-100 group">
+                                   <img src={pImg.img} alt="Proof" className="w-full h-full object-cover" />
+                                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
+                                       <button type="button" onClick={() => setZoomedImg(pImg.img)} className="p-1 bg-white rounded text-blue-600"><ZoomIn size={14}/></button>
+                                       <button type="button" onClick={() => setBookingData(prev => ({...prev, proofImages: prev.proofImages.filter(x => x.id !== pImg.id)}))} className="p-1 bg-white rounded text-red-600"><Trash2 size={14}/></button>
+                                   </div>
+                               </div>
                            ))}
-                        </div>
-                    </div>
+                           {(bookingData.proofImages || []).length === 0 && (
+                               <div className="col-span-3 text-center py-4 text-xs text-gray-400 border border-dashed rounded">ยังไม่มีรูปถ่ายหลักฐาน</div>
+                           )}
+                       </div>
+                   </div>
                )}
             </div>
 
             <div className="flex justify-between items-center pt-4 border-t">
               {bookingData.id ? (
-                 <button onClick={() => handleDeleteBooking(bookingData.id)} className="px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 font-bold flex items-center text-sm">
-                   <Trash2 size={16} className="mr-1.5"/> ลบนัดหมายนี้
+                 <button type="button" onClick={() => handleDeleteBooking(bookingData.id)} className="px-4 py-2 bg-red-100 text-red-700 rounded hover:bg-red-200 font-bold text-sm flex items-center">
+                   <Trash2 size={16} className="mr-1"/> ลบรายการนี้
                  </button>
               ) : <div></div>}
               
               <div className="flex gap-2">
-                <button onClick={() => { setIsBooking(false); setBookingData(getInitialBookingData()); }} className="px-5 py-2 bg-gray-200 text-gray-700 rounded-lg font-bold hover:bg-gray-300">ยกเลิก</button>
-                <button onClick={handleSaveBooking} className="px-6 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 shadow flex items-center">
-                  <Save size={18} className="mr-1.5"/> บันทึกข้อมูล
+                <button type="button" onClick={() => { setIsBooking(false); setBookingData(getInitialBookingData()); }} className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 font-bold text-sm">
+                  ยกเลิก
+                </button>
+                <button type="button" onClick={handleSaveBooking} className="px-5 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-bold text-sm shadow">
+                  บันทึกข้อมูล
                 </button>
               </div>
             </div>
@@ -684,103 +686,32 @@ export default function App() {
 
     return (
       <div className="space-y-6">
-        {/* แถบควบคุมเดือนและปุ่มเพิ่มนัดหมาย */}
+        {/* ส่วนหัวเปลี่ยนเดือน และปุ่มเพิ่มนัดหมาย */}
         <div className="flex flex-col md:flex-row justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-200 gap-4">
            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-blue-50 text-blue-600 rounded-lg"><CalendarIcon size={24}/></div>
-              <div>
-                 <h2 className="text-xl font-bold text-gray-800">ปฏิทินปฏิบัติงานและคิวงาน (Master Schedule)</h2>
-                 <p className="text-xs text-gray-500">จัดการตาราง Trial แม่พิมพ์, งานจัดส่ง และกำหนดการสำคัญประจำเดือน</p>
-              </div>
+              <button onClick={handlePrevMonth} className="p-2 border rounded-lg hover:bg-gray-100 text-gray-700"><ChevronLeft size={20}/></button>
+              <h2 className="text-lg md:text-xl font-extrabold text-blue-900 min-w-[200px] text-center">
+                 {monthNamesThai[currentMonth]} {currentYear + 543}
+              </h2>
+              <button onClick={handleNextMonth} className="p-2 border rounded-lg hover:bg-gray-100 text-gray-700"><ChevronRight size={20}/></button>
            </div>
-
-           <div className="flex items-center gap-3">
-              <div className="flex items-center bg-gray-100 rounded-lg p-1 border">
-                 <button onClick={handlePrevMonth} className="p-1.5 hover:bg-white rounded-md text-gray-600 shadow-sm transition-all"><ChevronLeft size={18}/></button>
-                 <span className="px-4 text-sm font-bold text-blue-900 min-w-[140px] text-center">{monthNamesThai[currentMonth]} {currentYear + 543}</span>
-                 <button onClick={handleNextMonth} className="p-1.5 hover:bg-white rounded-md text-gray-600 shadow-sm transition-all"><ChevronRight size={18}/></button>
-              </div>
-              <button onClick={() => { setBookingData({...getInitialBookingData(), date: new Date().toISOString().split('T')[0]}); setIsBooking(true); }} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg shadow flex items-center gap-1.5">
-                 <Plus size={16}/> เพิ่มนัดหมาย
+           
+           <div className="flex items-center gap-2 w-full md:w-auto justify-end">
+              <button onClick={() => { setBookingData({...getInitialBookingData(), date: new Date().toISOString().split('T')[0]}); setIsBooking(true); }} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow font-bold text-sm flex items-center justify-center">
+                 <Plus size={18} className="mr-1"/> จองคิว / เพิ่มนัดหมาย
               </button>
            </div>
         </div>
 
-        {/* 2-Column Grid Layout: ฝั่งซ้ายปฏิทิน/ตารางรายการ (สัดส่วนกว้าง), ฝั่งขวาช่อง Note ประจำเดือน */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Layout หลัก: แบ่งเป็น ปฏิทิน (ซ้าย 8 ส่วน) และ ช่องโน้ต (ขวา 4 ส่วน) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
            
-           {/* ฝั่งซ้าย: ปฏิทินและรายการนัดหมาย (กินพื้นที่ 8 คอลัมน์) */}
-           <div className="lg:col-span-8 space-y-6">
+           {/* ฝั่งซ้าย: ปฏิทิน */}
+           <div className="lg:col-span-8 space-y-4">
               {renderCalendarGrid()}
-
-              {/* ตารางสรุปรายการนัดหมายประจำเดือน */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                 <div className="px-5 py-3.5 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
-                    <h3 className="text-sm font-bold text-gray-800 flex items-center">
-                       <Clock3 size={16} className="mr-2 text-blue-600"/> รายการนัดหมายในเดือน {monthNamesThai[currentMonth]} {currentYear + 543} ({currentMonthSchedules.length} รายการ)
-                    </h3>
-                 </div>
-                 {currentMonthSchedules.length === 0 ? (
-                    <div className="p-8 text-center text-gray-400 text-sm">ไม่มีรายการนัดหมายในเดือนนี้</div>
-                 ) : (
-                    <div className="overflow-x-auto">
-                       <table className="w-full text-left text-xs">
-                          <thead className="bg-gray-100 text-gray-600 uppercase border-b">
-                             <tr>
-                                <th className="p-3">วันที่ / เวลา</th>
-                                <th className="p-3">ประเภท</th>
-                                <th className="p-3">หัวข้องาน</th>
-                                <th className="p-3">รายละเอียด</th>
-                                <th className="p-3 text-center">สถานะ</th>
-                                <th className="p-3 text-center">จัดการ</th>
-                             </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-200">
-                             {currentMonthSchedules.map(sch => {
-                                const isCompleted = sch.status === 'completed';
-                                return (
-                                   <tr key={sch.id} className="hover:bg-gray-50 transition-colors">
-                                      <td className="p-3 font-medium whitespace-nowrap">
-                                         {formatThaiDate(sch.date)} {sch.time ? <span className="text-gray-500">({sch.time})</span> : ''}
-                                      </td>
-                                      <td className="p-3 whitespace-nowrap">
-                                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                            sch.type === 'trial' ? 'bg-yellow-100 text-yellow-800' :
-                                            sch.type === 'delivery' ? 'bg-blue-100 text-blue-800' :
-                                            sch.type === 'meeting' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
-                                         }`}>
-                                            {getTypeLabel(sch.type)}
-                                         </span>
-                                      </td>
-                                      <td className="p-3 font-semibold text-gray-900">{sch.title}</td>
-                                      <td className="p-3 text-gray-600 truncate max-w-[200px]">{sch.detail || '-'}</td>
-                                      <td className="p-3 text-center whitespace-nowrap">
-                                         {isCompleted ? (
-                                            <span className="text-green-600 font-bold bg-green-50 px-2 py-0.5 rounded border border-green-200 inline-flex items-center gap-1">
-                                               <CheckCircle2 size={12}/> เสร็จสิ้น
-                                            </span>
-                                         ) : (
-                                            <span className="text-amber-600 font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-200 inline-flex items-center gap-1">
-                                               <Clock size={12}/> รอดำเนินการ
-                                            </span>
-                                         )}
-                                      </td>
-                                      <td className="p-3 text-center whitespace-nowrap">
-                                         <button onClick={() => handleEditSchedule(sch)} className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded text-xs font-bold transition-colors">
-                                            ดู/แก้ไข
-                                         </button>
-                                      </td>
-                                   </tr>
-                                );
-                             })}
-                          </tbody>
-                       </table>
-                    </div>
-                 )}
-              </div>
            </div>
 
-           {/* ฝั่งขวา: ช่อง Note / บันทึกข้อความประจำเดือน (กินพื้นที่ 4 คอลัมน์) */}
+           {/* ฝั่งขวา: ช่อง Note ประจำเดือน (เพิ่มเข้ามาตามที่ต้องการ) */}
            <div className="lg:col-span-4 space-y-4">
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 sticky top-6">
                  <div className="flex items-center justify-between pb-3 border-b border-gray-100 mb-3">
@@ -792,17 +723,17 @@ export default function App() {
                     </span>
                  </div>
                  <p className="text-xs text-gray-500 mb-3">
-                    บันทึกโน้ต วาระงานเร่งด่วน หรือเป้าหมายสำคัญสำหรับเดือน {monthNamesThai[currentMonth]} นี้ (บันทึกอัตโนมัติ)
+                    บันทึกโน้ต วาระงานเร่งด่วน หรือเป้าหมายสำคัญ (กด Enter เพื่อขึ้นบรรทัดใหม่ได้)
                  </p>
                  <textarea
                     rows={12}
-                    className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-y"
-                    placeholder="พิมพ์บันทึกข้อความสำคัญประจำเดือน เช่น รายการแม่พิมพ์ที่ต้องเร่งเคลียร์, กำหนดการประชุมลูกค้า ฯลฯ..."
-                    value={currentNoteValue}
+                    className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-y"
+                    placeholder="พิมพ์บันทึกข้อความสำคัญประจำเดือน..."
+                    value={monthlyNotes[`${currentYear}-${currentMonth}`] || ''}
                     onChange={(e) => handleSaveMonthlyNote(e.target.value)}
                  />
                  <div className="mt-2 text-right">
-                    <span className="text-[10px] text-gray-400">💾 ข้อมูลซิงค์กับฐานข้อมูลเรียบร้อย</span>
+                    <span className="text-[10px] text-gray-400">💾 บันทึกอัตโนมัติ</span>
                  </div>
               </div>
            </div>
@@ -812,183 +743,135 @@ export default function App() {
     );
   };
 
-  // ส่วนแสดงผลหลักของแอปพลิเคชัน
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
+    <div className="min-h-screen bg-gray-50 text-gray-800">
       <style>{printStyles}</style>
       
-      {/* Navbar / Header */}
-      <header className="bg-[#1e3a8a] text-white shadow-md no-print">
+      {/* Top Header */}
+      <header className="bg-[#2b4c9b] text-white shadow-md">
         <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
-          <div className="flex items-center space-x-3">
-            <Box className="w-8 h-8 text-blue-400" />
+          <div className="flex items-center space-x-3 cursor-pointer" onClick={() => { setView('clients'); resetForms(); }}>
+            <Box className="w-8 h-8 text-blue-300" />
             <div>
-              <h1 className="text-lg font-bold tracking-wide">WISDOM TRIAL MANAGEMENT</h1>
-              <p className="text-xs text-blue-200">ระบบบันทึกและติดตามผลการทดลองฉีดแม่พิมพ์พลาสติก (Production Engineering)</p>
+              <h1 className="text-lg font-bold leading-tight">Wisdom Trial Management</h1>
+              <p className="text-xs text-blue-200">ระบบจัดการงานฉีดและแม่พิมพ์พลาสติก</p>
             </div>
           </div>
+          
           <div className="flex items-center space-x-2">
-            <button 
-              onClick={() => setActiveTab('projects')} 
-              className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center transition-all ${activeTab === 'projects' ? 'bg-blue-600 text-white shadow' : 'text-blue-100 hover:bg-blue-800'}`}
-            >
-              <FolderKanban size={16} className="mr-2"/> จัดการโปรเจกต์
+            <button onClick={() => setActiveTab('projects')} className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors ${activeTab === 'projects' ? 'bg-blue-700 text-white shadow' : 'text-blue-100 hover:bg-blue-800'}`}>
+              <FolderKanban size={16} className="inline mr-1"/> จัดการโปรเจกต์
             </button>
-            <button 
-              onClick={() => setActiveTab('calendar')} 
-              className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center transition-all ${activeTab === 'calendar' ? 'bg-blue-600 text-white shadow' : 'text-blue-100 hover:bg-blue-800'}`}
-            >
-              <CalendarDays size={16} className="mr-2"/> ปฏิทินงาน
+            <button onClick={() => setActiveTab('calendar')} className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors ${activeTab === 'calendar' ? 'bg-blue-700 text-white shadow' : 'text-blue-100 hover:bg-blue-800'}`}>
+              <CalendarDays size={16} className="inline mr-1"/> ปฏิทินและตารางงาน
             </button>
           </div>
         </div>
       </header>
 
-      {/* Main Content Body */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6">
+      {/* Main Container */}
+      <main className="max-w-7xl mx-auto p-4 md:p-6">
         {activeTab === 'calendar' ? (
           <CalendarView />
         ) : (
           <div>
-            {/* ส่วนจัดการโปรเจกต์ (Clients / Models / Parts / Trials) */}
-            <div className="bg-white rounded-xl shadow-sm border p-6 mb-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-bold text-gray-800 flex items-center">
-                  <Box className="mr-2 text-blue-600"/> รายการลูกค้าและแม่พิมพ์
-                </h2>
-                {view !== 'clients' && (
-                  <button onClick={goBack} className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded font-bold">
-                    ← ย้อนกลับ
-                  </button>
-                )}
+            {/* แสดงเนื้อหาฝั่ง Projects ตาม View ปัจจุบัน */}
+            {view === 'clients' && (
+              <div className="space-y-4">
+                <h2 className="text-xl font-bold text-gray-800">ลูกค้ารวมทั้งหมด</h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {clients.map(c => (
+                    <div key={c.id} onClick={() => { setPath({...path, client: c}); setView('models'); }} className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 hover:border-blue-500 cursor-pointer transition-all">
+                      <h3 className="font-bold text-blue-900">{c.name}</h3>
+                      <p className="text-xs text-gray-500 mt-1">คลิกเพื่อดูรุ่นผลิตภัณฑ์ (Models)</p>
+                    </div>
+                  ))}
+                </div>
               </div>
-
-              {view === 'clients' && (
+            )}
+            
+            {view === 'models' && path.client && (
+              <div className="space-y-4">
+                <button onClick={goBack} className="text-sm text-blue-600 font-semibold flex items-center hover:underline"><ChevronLeft size={16}/> กลับหน้าเลือกลูกค้า</button>
+                <h2 className="text-xl font-bold text-gray-800">รุ่นผลิตภัณฑ์: {path.client.name}</h2>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {clients.map(client => (
-                    <div 
-                      key={client.id} 
-                      onClick={() => { setPath({ ...path, client }); setView('models'); }}
-                      className="p-5 border rounded-xl shadow-sm hover:shadow-md cursor-pointer bg-gradient-to-br from-white to-blue-50/30 border-blue-100 hover:border-blue-400 transition-all flex justify-between items-center"
-                    >
-                      <div>
-                        <h3 className="font-bold text-gray-800 text-base">{client.name}</h3>
-                        <p className="text-xs text-gray-500 mt-1">คลิกเพื่อดูรุ่นผลิตภัณฑ์ (Models)</p>
-                      </div>
-                      <ChevronRight className="text-blue-400" />
+                  {models.filter(m => m.clientId === path.client.id).map(m => (
+                    <div key={m.id} onClick={() => { setPath({...path, model: m}); setView('parts'); }} className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 hover:border-blue-500 cursor-pointer transition-all">
+                      <h3 className="font-bold text-blue-900">{m.name}</h3>
+                      <p className="text-xs text-gray-500 mt-1">คลิกเพื่อดูชิ้นส่วน (Parts)</p>
                     </div>
                   ))}
                 </div>
-              )}
+              </div>
+            )}
 
-              {view === 'models' && (
+            {view === 'parts' && path.model && (
+              <div className="space-y-4">
+                <button onClick={goBack} className="text-sm text-blue-600 font-semibold flex items-center hover:underline"><ChevronLeft size={16}/> กลับหน้ารุ่นผลิตภัณฑ์</button>
+                <h2 className="text-xl font-bold text-gray-800">รายการชิ้นส่วน Model: {path.model.name}</h2>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {models.filter(m => m.clientId === path.client?.id).map(model => (
-                    <div 
-                      key={model.id} 
-                      onClick={() => { setPath({ ...path, model }); setView('parts'); }}
-                      className="p-5 border rounded-xl shadow-sm hover:shadow-md cursor-pointer bg-gradient-to-br from-white to-indigo-50/30 border-indigo-100 hover:border-indigo-400 transition-all flex justify-between items-center"
-                    >
-                      <div>
-                        <h3 className="font-bold text-gray-800 text-base">Model: {model.name}</h3>
-                        <p className="text-xs text-gray-500 mt-1">คลิกเพื่อดูชิ้นงาน (Parts)</p>
-                      </div>
-                      <ChevronRight className="text-indigo-400" />
+                  {parts.filter(p => p.modelId === path.model.id).map(p => (
+                    <div key={p.id} onClick={() => { setPath({...path, part: p}); setView('trials'); }} className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 hover:border-blue-500 cursor-pointer transition-all">
+                      <h3 className="font-bold text-blue-900">{(p.code||'').split('\n')[0]}</h3>
+                      <p className="text-xs text-gray-500 mt-1">คลิกเพื่อดูประวัติการทดลองฉีด (Trials)</p>
                     </div>
                   ))}
                 </div>
-              )}
+              </div>
+            )}
 
-              {view === 'parts' && (
-                <div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {parts.filter(p => p.modelId === path.model?.id).map(part => (
-                      <div 
-                        key={part.id} 
-                        onClick={() => { setPath({ ...path, part }); setView('trials'); }}
-                        className="p-5 border rounded-xl shadow-sm hover:shadow-md cursor-pointer bg-white hover:border-blue-500 transition-all"
-                      >
-                        <h3 className="font-bold text-gray-800 text-sm whitespace-pre-line">{part.code}</h3>
-                        <p className="text-xs text-gray-500 mt-2">คลิกเพื่อดูประวัติการ Trial</p>
-                      </div>
-                    ))}
-                  </div>
+            {view === 'trials' && path.part && (
+              <div className="space-y-4">
+                <button onClick={goBack} className="text-sm text-blue-600 font-semibold flex items-center hover:underline"><ChevronLeft size={16}/> กลับหน้าชิ้นส่วน</button>
+                <div className="flex justify-between items-center">
+                   <h2 className="text-xl font-bold text-gray-800">ประวัติการ Trial งาน: {(path.part.code||'').split('\n')[0]}</h2>
+                   <button onClick={() => setView('trial_form')} className="px-4 py-2 bg-blue-600 text-white rounded-lg shadow font-bold text-sm flex items-center">
+                     <Plus size={16} className="mr-1"/> สร้างใบบันทึก Trial ใหม่
+                   </button>
                 </div>
-              )}
-
-              {view === 'trials' && (
-                <div>
-                  <div className="mb-4 flex justify-between items-center bg-gray-50 p-3 rounded-lg border">
-                    <div>
-                      <span className="text-xs text-gray-500">ชิ้นงานที่เลือก:</span>
-                      <h4 className="font-bold text-gray-800">{path.part?.code}</h4>
-                    </div>
-                    <button 
-                      onClick={() => setView('trial_form')}
-                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold shadow flex items-center"
-                    >
-                      <Plus size={16} className="mr-1"/> สร้างใบ Trial ใหม่
-                    </button>
-                  </div>
-
-                  <div className="space-y-3">
-                    {trials.filter(t => t.partId === path.part?.id).length === 0 ? (
-                      <div className="p-8 text-center text-gray-400 text-sm border rounded-lg bg-gray-50">ยังไม่มีประวัติการ Trial สำหรับชิ้นงานนี้</div>
-                    ) : (
-                      trials.filter(t => t.partId === path.part?.id).map(trial => (
-                        <div key={trial.id} className="p-4 border rounded-lg flex justify-between items-center bg-white shadow-sm hover:border-blue-300">
-                          <div>
-                            <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">Trial #{trial.trialNo || 1}</span>
-                            <span className="text-xs text-gray-500 ml-2">วันที่: {formatThaiDate(trial.date)}</span>
-                          </div>
-                          <button 
-                            onClick={() => { setFormData(trial); setView('report'); }}
-                            className="px-3 py-1.5 bg-gray-100 hover:bg-blue-600 hover:text-white text-gray-700 rounded text-xs font-bold transition-colors"
-                          >
-                            ดูรายงาน / ปริ้นท์
-                          </button>
-                        </div>
-                      ))
-                    )}
-                  </div>
+                
+                <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+                   <table className="w-full text-left border-collapse">
+                      <thead>
+                         <tr className="bg-gray-100 text-xs text-gray-700 uppercase border-b">
+                            <th className="p-3">ครั้งที่ (Trial No.)</th>
+                            <th className="p-3">วันที่ Trial</th>
+                            <th className="p-3">สถานะ</th>
+                            <th className="p-3 text-right">จัดการ</th>
+                         </tr>
+                      </thead>
+                      <tbody className="divide-y text-sm">
+                         {trials.filter(t => t.partId === path.part.id).map(t => (
+                            <tr key={t.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => { setFormData(t); setView('report'); }}>
+                               <td className="p-3 font-bold text-blue-900">Trial #{t.trialNo || 1}</td>
+                               <td className="p-3">{formatThaiDate(t.date)}</td>
+                               <td className="p-3"><span className="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-700 font-semibold">{t.status || 'draft'}</span></td>
+                               <td className="p-3 text-right">
+                                  <button onClick={(e) => { e.stopPropagation(); setFormData(t); setView('report'); }} className="text-blue-600 hover:underline text-xs font-bold">ดูรายงาน</button>
+                               </td>
+                            </tr>
+                         ))}
+                         {trials.filter(t => t.partId === path.part.id).length === 0 && (
+                            <tr>
+                               <td colSpan="4" className="text-center py-6 text-gray-400">ยังไม่มีประวัติการ Trial สำหรับชิ้นส่วนนี้</td>
+                            </tr>
+                         )}
+                      </tbody>
+                   </table>
                 </div>
-              )}
-
-              {view === 'trial_form' && (
-                <div className="p-4 border rounded-xl bg-gray-50">
-                  <h3 className="font-bold text-base text-gray-800 mb-4">ฟอร์มบันทึกข้อมูล Trial แม่พิมพ์</h3>
-                  <p className="text-sm text-gray-600 mb-4">กำลังพัฒนาฟอร์มบันทึกรายละเอียด Trial เพิ่มเติม คุณสามารถใช้ระบบปฏิทินและบันทึกข้อความได้เต็มรูปแบบแล้วครับ</p>
-                  <button onClick={() => setView('trials')} className="px-4 py-2 bg-gray-600 text-white rounded font-bold text-sm">กลับหน้าประวัติ Trial</button>
-                </div>
-              )}
-
-              {view === 'report' && formData && (
-                <div className="p-4 border rounded-xl bg-white">
-                  <h3 className="font-bold text-base text-gray-800 mb-4">รายงานผลการ Trial (Trial Report)</h3>
-                  <div className="flex gap-2 mb-4">
-                    <button onClick={() => handleExportPNG('report-section', 'trial-report')} className="px-3 py-1.5 bg-green-600 text-white rounded text-xs font-bold flex items-center"><Download size={14} className="mr-1"/> ดาวน์โหลด PNG</button>
-                    <button onClick={() => handleExportExcel('report-section', 'trial-report')} className="px-3 py-1.5 bg-blue-600 text-white rounded text-xs font-bold flex items-center"><Printer size={14} className="mr-1"/> ส่งออก Excel</button>
-                    <button onClick={() => setView('trials')} className="px-3 py-1.5 bg-gray-200 text-gray-700 rounded text-xs font-bold">กลับ</button>
-                  </div>
-                  <div id="report-section" className="p-4 border bg-white">
-                    <h4 className="font-bold text-lg mb-2">รายงาน Trial #{formData.trialNo || 1}</h4>
-                    <p className="text-sm text-gray-600">วันที่ทดลอง: {formatThaiDate(formData.date)}</p>
-                  </div>
-                </div>
-              )}
-
-            </div>
+              </div>
+            )}
           </div>
         )}
       </main>
 
-      {/* Modal สำหรับขยายรูปภาพ */}
+      {/* Zoom Modal */}
       {zoomedImg && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 animate-in fade-in" onClick={() => setZoomedImg(null)}>
-          <div className="relative max-w-4xl max-h-[90vh] bg-white rounded-xl overflow-hidden p-2 shadow-2xl" onClick={e => e.stopPropagation()}>
-            <button onClick={() => setZoomedImg(null)} className="absolute top-3 right-3 bg-red-600 text-white p-2 rounded-full hover:bg-red-700 z-10 shadow"><X size={18}/></button>
-            <img src={zoomedImg} alt="Zoomed" className="max-w-full max-h-[85vh] object-contain mx-auto rounded" />
-          </div>
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setZoomedImg(null)}>
+           <div className="relative max-w-4xl max-h-[90vh]" onClick={e => e.stopPropagation()}>
+              <img src={zoomedImg} alt="Zoomed" className="max-w-full max-h-[85vh] object-contain rounded" />
+              <button onClick={() => setZoomedImg(null)} className="absolute -top-10 right-0 text-white bg-black/50 p-2 rounded-full hover:bg-red-600"><X size={20}/></button>
+           </div>
         </div>
       )}
     </div>
