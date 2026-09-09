@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 
 export default function App() {
   // state สำหรับเก็บข้อความใน Note ด้านข้างแบบอิสระ
-  constपासूनNote, setNote] = useState('');
+ const [note, setNote] = useState('');
 
   return (
     <div style={{ padding: '20px', fontFamily: 'sans-serif', backgroundColor: '#f4f6f9', minHeight: '100vh' }}>
