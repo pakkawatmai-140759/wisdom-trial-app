@@ -1,6 +1,3 @@
-ต้องการแก้ไขเพิ่มส่วนของโน๊ตเท่านั้น ส่วนยังให้คงเดิมไว้ไม่ต้องเปลี่ยนแปลงใด 
-
-
 import React, { useState, useEffect } from 'react';
 import { 
   FolderKanban, Settings, Box, Activity, Camera, Plus, 
