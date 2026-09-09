@@ -230,9 +230,13 @@ const initialModels = [
   { id: 2, clientId: 1, name: '34AA' },
   { id: 3, clientId: 1, name: 'P700' },
 ];
+const initialParts = [
+  { id: 1, modelId: 1, code: '81125-3DAA\nLOCK KNOB R/L WALK IN', status: 'active' },
+  { id: 2, modelId: 1, code: '81126-3DAA\nCOVER COMP R RECLINING OUT', status: 'active' },
+  { id: 3, modelId: 1, code: '81127-3DAA\nUNDER COVER RR CTR MID SEAT', status: 'active' },
+];
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('projects'); 
   const [view, setView] = useState('clients');
   const [path, setPath] = useState({ client: null, model: null, part: null });
   const [zoomedImg, setZoomedImg] = useState(null);
@@ -414,16 +418,6 @@ export default function App() {
       setBookingData({ ...schedObj, status: schedObj.status || 'pending', proofImages: schedObj.proofImages || [] });
       setIsBooking(true);
       window.scrollTo(0, 0); 
-    };
-
-    const getTypeLabel = (typeCode) => {
-       switch(typeCode){
-         case 'trial': return 'Trial / งานฉีด';
-         case 'delivery': return 'งานจัดส่ง (Delivery)';
-         case 'support': return 'Support / Jig';
-         case 'meeting': return 'นัดประชุม (Meeting)';
-         default: return typeCode;
-       }
     };
 
     const currentMonthSchedules = [...schedules]
@@ -702,6 +696,334 @@ export default function App() {
         )}
 
         {renderCalendarGrid()}
+
+        {/* ตารางรายการนัดหมายประจำเดือน (ส่วนเดิมก่อนหน้า) */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mt-6">
+          <div className="bg-gray-50 px-4 py-3 border-b flex justify-between items-center flex-wrap gap-3">
+             <div className="flex items-center gap-2">
+               <CalendarIcon className="text-blue-600" size={20}/>
+               <h3 className="font-bold text-gray-800">รายการนัดหมายประจำเดือน {monthNamesThai[currentMonth]}</h3>
+             </div>
+             <div className="flex items-center gap-2 flex-wrap">
+               <label className="flex items-center gap-1.5 text-xs bg-white px-3 py-1.5 rounded-lg border border-gray-300 shadow-sm cursor-pointer hover:bg-gray-50 font-semibold text-gray-700">
+                 <input 
+                   type="checkbox" 
+                   checked={includeCalendarInReport} 
+                   onChange={e => setIncludeCalendarInReport(e.target.checked)}
+                   className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4"
+                 />
+                 <span>แนบหน้าปฏิทินด้วย</span>
+               </label>
+               {selectedScheduleIds.length > 0 ? (
+                 <button onClick={() => {
+                   if(window.confirm(`ยืนยันการลบ ${selectedScheduleIds.length} รายการที่เลือก?`)){
+                     updateSchedules(schedules.filter(s => !selectedScheduleIds.includes(s.id)));
+                     setSelectedScheduleIds([]);
+                   }
+                 }} className="bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-red-700 flex items-center gap-1 shadow-sm">
+                   <Trash2 size={14}/> ลบที่เลือก ({selectedScheduleIds.length})
+                 </button>
+               ) : (
+                 <button onClick={() => setSelectedScheduleIds(currentMonthSchedules.map(s => s.id))} className="bg-white text-gray-700 border border-gray-300 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-gray-50 shadow-sm">
+                   เลือกทั้งหมด
+                 </button>
+               )}
+               {selectedScheduleIds.length > 0 && (
+                 <button onClick={() => setSelectedScheduleIds([])} className="bg-white text-gray-500 border border-gray-300 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-gray-50 shadow-sm">
+                   ล้างทั้งหมด
+                 </button>
+               )}
+               <button onClick={() => window.print()} className="bg-gray-800 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-gray-900 flex items-center gap-1 shadow-sm">
+                 <Printer size={14}/> พิมพ์ตารางงาน (PDF)
+               </button>
+             </div>
+          </div>
+
+          <div className="overflow-x-auto">
+             <table className="w-full text-left border-collapse text-xs md:text-sm">
+               <thead>
+                 <tr className="bg-gray-100 text-gray-700 border-b">
+                   <th className="p-3 w-10 text-center">
+                     <input 
+                       type="checkbox" 
+                       checked={currentMonthSchedules.length > 0 && selectedScheduleIds.length === currentMonthSchedules.length}
+                       onChange={e => {
+                         if(e.target.checked) setSelectedScheduleIds(currentMonthSchedules.map(s => s.id));
+                         else setSelectedScheduleIds([]);
+                       }}
+                       className="rounded text-blue-600 focus:ring-blue-500"
+                     />
+                   </th>
+                   <th className="p-3">วันที่</th>
+                   <th className="p-3">เวลา</th>
+                   <th className="p-3">ประเภท</th>
+                   <th className="p-3">หัวข้องาน (TITLE)</th>
+                   <th className="p-3">รายละเอียด</th>
+                   <th className="p-3 text-center">สถานะ / รูปหลักฐาน</th>
+                   <th className="p-3 text-center">จัดการ</th>
+                 </tr>
+               </thead>
+               <tbody className="divide-y divide-gray-200">
+                 {currentMonthSchedules.length > 0 ? (
+                   currentMonthSchedules.map(sched => {
+                     const isSelected = selectedScheduleIds.includes(sched.id);
+                     const isCompleted = sched.status === 'completed';
+                     return (
+                       <tr key={sched.id} className={`hover:bg-blue-50/50 transition-colors ${isSelected ? 'bg-blue-50/80' : ''}`}>
+                         <td className="p-3 text-center">
+                           <input 
+                             type="checkbox" 
+                             checked={isSelected}
+                             onChange={e => {
+                               if(e.target.checked) setSelectedScheduleIds([...selectedScheduleIds, sched.id]);
+                               else setSelectedScheduleIds(selectedScheduleIds.filter(id => id !== sched.id));
+                             }}
+                             className="rounded text-blue-600 focus:ring-blue-500"
+                           />
+                         </td>
+                         <td className="p-3 font-medium whitespace-nowrap">{formatThaiDate(sched.date)}</td>
+                         <td className="p-3 whitespace-nowrap">{sched.time || '-'}</td>
+                         <td className="p-3 whitespace-nowrap">
+                           <span className={`px-2 py-0.5 rounded text-[11px] font-semibold ${
+                             sched.type === 'trial' ? 'bg-yellow-100 text-yellow-800' :
+                             sched.type === 'delivery' ? 'bg-blue-100 text-blue-800' :
+                             sched.type === 'meeting' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
+                           }`}>
+                             {getTypeLabel(sched.type)}
+                           </span>
+                         </td>
+                         <td className="p-3 font-bold text-gray-900">{sched.title}</td>
+                         <td className="p-3 text-gray-600 max-w-xs truncate">{sched.detail || '-'}</td>
+                         <td className="p-3 text-center whitespace-nowrap">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${isCompleted ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+                                {isCompleted ? '✅ เสร็จสิ้น' : '⏳ รอดำเนินการ'}
+                              </span>
+                              {sched.proofImages && sched.proofImages.length > 0 && (
+                                <button onClick={() => setZoomedImg(sched.proofImages[0].img)} className="text-blue-600 hover:text-blue-800 p-1" title="ดูรูปหลักฐาน">
+                                  <ImageIcon size={16}/>
+                                </button>
+                              )}
+                            </div>
+                         </td>
+                         <td className="p-3 text-center whitespace-nowrap">
+                           <div className="flex items-center justify-center gap-1">
+                             <button onClick={() => handleEditSchedule(sched)} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded" title="แก้ไข">
+                               <Edit2 size={16}/>
+                             </button>
+                             <button onClick={() => handleDeleteBooking(sched.id)} className="p-1.5 text-red-600 hover:bg-red-100 rounded" title="ลบ">
+                               <Trash2 size={16}/>
+                             </button>
+                           </div>
+                         </td>
+                       </tr>
+                     );
+                   })
+                 ) : (
+                   <tr>
+                     <td colSpan="8" className="p-8 text-center text-gray-400">
+                       ไม่มีข้อมูลนัดหมายในเดือนนี้
+                     </td>
+                   </tr>
+                 )}
+               </tbody>
+             </table>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderClientsView = () => {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+          <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+            <FolderKanban className="text-blue-600"/> เลือกลูกค้า (Clients)
+          </h2>
+          <button onClick={() => { setAddingId('client'); setInputValue(''); }} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 shadow-sm font-semibold text-sm">
+            <Plus size={18}/> เพิ่มลูกค้าใหม่
+          </button>
+        </div>
+
+        {addingId === 'client' && (
+          <div className="bg-white p-4 rounded-xl shadow border border-blue-200 flex gap-3 items-center">
+            <input 
+              type="text" 
+              className="flex-1 border p-2 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm" 
+              placeholder="ชื่อบริษัทลูกค้า..." 
+              value={inputValue} 
+              onChange={e => setInputValue(e.target.value)}
+              autoFocus
+            />
+            <button onClick={() => {
+              if(!inputValue.trim()) return;
+              updateClients([...clients, { id: Date.now(), name: inputValue.trim() }]);
+              resetForms();
+            }} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 flex items-center gap-1">
+              <Check size={16}/> บันทึก
+            </button>
+            <button onClick={resetForms} className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-300">
+              ยกเลิก
+            </button>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {clients.map(client => (
+            <div 
+              key={client.id} 
+              onClick={() => { setPath({ ...path, client }); setView('models'); }}
+              className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 hover:border-blue-500 hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group"
+            >
+              <div className="flex justify-between items-start mb-3">
+                <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-lg group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                  {client.name.charAt(0)}
+                </div>
+                <ActionButtons 
+                  id={client.id}
+                  isEditing={editingId === client.id}
+                  onEdit={() => { setEditingId(client.id); setInputValue(client.name); }}
+                  onSave={() => {
+                    if(!inputValue.trim()) return;
+                    updateClients(clients.map(c => c.id === client.id ? {...c, name: inputValue.trim()} : c));
+                    resetForms();
+                  }}
+                  onCancel={resetForms}
+                  onDelete={() => {
+                    updateClients(clients.filter(c => c.id !== client.id));
+                    resetForms();
+                  }}
+                  confirmDeleteId={confirmDeleteId}
+                  setConfirmDeleteId={setConfirmDeleteId}
+                />
+              </div>
+
+              {editingId === client.id ? (
+                <div onClick={e => e.stopPropagation()} className="my-2">
+                  <input 
+                    type="text" 
+                    className="w-full border p-1.5 rounded text-sm outline-none focus:ring-2 focus:ring-blue-500" 
+                    value={inputValue} 
+                    onChange={e => setInputValue(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+              ) : (
+                <h3 className="font-bold text-gray-800 text-base mb-1 group-hover:text-blue-600 transition-colors">
+                  {client.name}
+                </h3>
+              )}
+
+              <p className="text-xs text-gray-500 flex items-center gap-1 mt-2">
+                ดูโมเดลแม่พิมพ์ทั้งหมด <ChevronRight size={14}/>
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderModelsView = () => {
+    const clientModels = models.filter(m => m.clientId === path.client.id);
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <button onClick={goBack} className="p-2 border rounded-lg hover:bg-gray-100 text-gray-600">
+              <ChevronLeft size={20}/>
+            </button>
+            <div>
+              <p className="text-xs text-gray-500 font-semibold">ลูกค้า:</p>
+              <h2 className="text-lg font-bold text-blue-900">{path.client.name}</h2>
+            </div>
+          </div>
+          <button onClick={() => { setAddingId('model'); setInputValue(''); }} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 shadow-sm font-semibold text-sm">
+            <Plus size={18}/> เพิ่มโมเดลใหม่
+          </button>
+        </div>
+
+        {addingId === 'model' && (
+          <div className="bg-white p-4 rounded-xl shadow border border-blue-200 flex gap-3 items-center">
+            <input 
+              type="text" 
+              className="flex-1 border p-2 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm" 
+              placeholder="ชื่อโมเดล (เช่น 3DAA, P700)..." 
+              value={inputValue} 
+              onChange={e => setInputValue(e.target.value)}
+              autoFocus
+            />
+            <button onClick={() => {
+              if(!inputValue.trim()) return;
+              updateModels([...models, { id: Date.now(), clientId: path.client.id, name: inputValue.trim() }]);
+              resetForms();
+            }} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 flex items-center gap-1">
+              <Check size={16}/> บันทึก
+            </button>
+            <button onClick={resetForms} className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-300">
+              ยกเลิก
+            </button>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {clientModels.map(model => (
+            <div 
+              key={model.id} 
+              onClick={() => { setPath({ ...path, model }); setView('parts'); }}
+              className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 hover:border-blue-500 hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group"
+            >
+              <div className="flex justify-between items-start mb-3">
+                <div className="w-10 h-10 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-lg group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                  {model.name.charAt(0)}
+                </div>
+                <ActionButtons 
+                  id={model.id}
+                  isEditing={editingId === model.id}
+                  onEdit={() => { setEditingId(model.id); setInputValue(model.name); }}
+                  onSave={() => {
+                    if(!inputValue.trim()) return;
+                    updateModels(models.map(m => m.id === model.id ? {...m, name: inputValue.trim()} : m));
+                    resetForms();
+                  }}
+                  onCancel={resetForms}
+                  onDelete={() => {
+                    updateModels(models.filter(m => m.id !== model.id));
+                    resetForms();
+                  }}
+                  confirmDeleteId={confirmDeleteId}
+                  setConfirmDeleteId={setConfirmDeleteId}
+                />
+              </div>
+
+              {editingId === model.id ? (
+                <div onClick={e => e.stopPropagation()} className="my-2">
+                  <input 
+                    type="text" 
+                    className="w-full border p-1.5 rounded text-sm outline-none focus:ring-2 focus:ring-blue-500" 
+                    value={inputValue} 
+                    onChange={e => setInputValue(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+              ) : (
+                <h3 className="font-bold text-gray-800 text-base mb-1 group-hover:text-indigo-600 transition-colors">
+                  Model: {model.name}
+                </h3>
+              )}
+
+              <p className="text-xs text-gray-500 flex items-center gap-1 mt-2">
+                ดูรายการชิ้นส่วน / แม่พิมพ์ <ChevronRight size={14}/>
+              </p>
+            </div>
+          ))}
+          {clientModels.length === 0 && (
+            <div className="col-span-full py-12 text-center text-gray-400 bg-white rounded-xl border border-dashed">
+              ยังไม่มีโมเดลในลูกค้ารายนี้ คลิก "เพิ่มโมเดลใหม่" ด้านบน
+            </div>
+          )}
+        </div>
       </div>
     );
   };
@@ -726,8 +1048,320 @@ export default function App() {
           <CalendarView />
         ) : (
           <div>
-            <h2 className="text-2xl font-bold mb-4">ระบบจัดการแม่พิมพ์และบันทึกผลทดสอบ (Trial Report)</h2>
-            <p className="text-gray-600 mb-6">เลือกเมนูด้านบนเพื่อดูตารางนัดหมายหรือจัดการโปรเจกต์งานฉีดแม่พิมพ์พลาสติก</p>
+            {view === 'clients' && renderClientsView()}
+            {view === 'models' && renderModelsView()}
+            {view === 'parts' && (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                  <div className="flex items-center gap-3">
+                    <button onClick={goBack} className="p-2 border rounded-lg hover:bg-gray-100"><ChevronLeft size={20}/></button>
+                    <div>
+                      <p className="text-xs text-gray-500">{path.client?.name} &gt; Model {path.model?.name}</p>
+                      <h2 className="text-lg font-bold text-blue-900">รายการชิ้นส่วน / แม่พิมพ์</h2>
+                    </div>
+                  </div>
+                  <button onClick={() => { setAddingId('part'); setInputValue(''); }} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 shadow-sm font-semibold text-sm">
+                    <Plus size={18}/> เพิ่มแม่พิมพ์ใหม่
+                  </button>
+                </div>
+
+                {addingId === 'part' && (
+                  <div className="bg-white p-4 rounded-xl shadow border border-blue-200 flex gap-3 items-center">
+                    <input 
+                      type="text" 
+                      className="flex-1 border p-2 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm" 
+                      placeholder="รหัสและชื่อชิ้นส่วน..." 
+                      value={inputValue} 
+                      onChange={e => setInputValue(e.target.value)}
+                      autoFocus
+                    />
+                    <button onClick={async () => {
+                      if(!inputValue.trim()) return;
+                      const newPart = { id: Date.now(), modelId: path.model.id, code: inputValue.trim(), status: 'active' };
+                      await setDoc(doc(db, 'parts', newPart.id.toString()), newPart);
+                      resetForms();
+                    }} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 flex items-center gap-1">
+                      <Check size={16}/> บันทึก
+                    </button>
+                    <button onClick={resetForms} className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-300">
+                      ยกเลิก
+                    </button>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {parts.filter(p => p.modelId === path.model?.id).map(part => (
+                    <div 
+                      key={part.id} 
+                      onClick={() => { setPath({ ...path, part }); setView('trials'); }}
+                      className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 hover:border-blue-500 hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group"
+                    >
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="w-10 h-10 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center font-bold text-lg group-hover:bg-purple-600 group-hover:text-white transition-colors">
+                          <Box size={20}/>
+                        </div>
+                        <ActionButtons 
+                          id={part.id}
+                          isEditing={editingId === part.id}
+                          onEdit={() => { setEditingId(part.id); setInputValue(part.code); }}
+                          onSave={async () => {
+                            if(!inputValue.trim()) return;
+                            await setDoc(doc(db, 'parts', part.id.toString()), { ...part, code: inputValue.trim() });
+                            resetForms();
+                          }}
+                          onCancel={resetForms}
+                          onDelete={async () => {
+                            await deleteDoc(doc(db, 'parts', part.id.toString()));
+                            resetForms();
+                          }}
+                          confirmDeleteId={confirmDeleteId}
+                          setConfirmDeleteId={setConfirmDeleteId}
+                        />
+                      </div>
+
+                      {editingId === part.id ? (
+                        <div onClick={e => e.stopPropagation()} className="my-2">
+                          <textarea 
+                            className="w-full border p-1.5 rounded text-sm outline-none focus:ring-2 focus:ring-blue-500" 
+                            value={inputValue} 
+                            onChange={e => setInputValue(e.target.value)}
+                            rows={2}
+                            autoFocus
+                          />
+                        </div>
+                      ) : (
+                        <h3 className="font-bold text-gray-800 text-base mb-1 group-hover:text-purple-600 transition-colors whitespace-pre-line">
+                          {part.code}
+                        </h3>
+                      )}
+
+                      <p className="text-xs text-gray-500 flex items-center gap-1 mt-2">
+                        ประวัติการ Trial แม่พิมพ์ <ChevronRight size={14}/>
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {view === 'trials' && (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex-wrap gap-3">
+                  <div className="flex items-center gap-3">
+                    <button onClick={goBack} className="p-2 border rounded-lg hover:bg-gray-100"><ChevronLeft size={20}/></button>
+                    <div>
+                      <p className="text-xs text-gray-500">{path.client?.name} &gt; Model {path.model?.name}</p>
+                      <h2 className="text-lg font-bold text-blue-900 whitespace-pre-line">{path.part?.code}</h2>
+                    </div>
+                  </div>
+                  <button onClick={() => {
+                    const existingTrials = trials.filter(t => t.partId === path.part.id);
+                    const newTrialNo = existingTrials.length + 1;
+                    const newTrial = { ...getInitialTrialData(), id: 'trial_' + Date.now(), partId: path.part.id, trialNo: newTrialNo };
+                    setFormData(newTrial);
+                    setView('trial_form');
+                  }} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 shadow-sm font-semibold text-sm">
+                    <Plus size={18}/> บันทึกผล Trial ใหม่ (ครั้งที่ {trials.filter(t => t.partId === path.part.id).length + 1})
+                  </button>
+                </div>
+
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                  <div className="p-4 bg-gray-50 border-b font-bold text-gray-700">
+                    ประวัติการทดสอบแม่พิมพ์ (Trial History)
+                  </div>
+                  <div className="divide-y divide-gray-200">
+                    {trials.filter(t => t.partId === path.part?.id).map(trial => (
+                      <div key={trial.id} className="p-4 flex justify-between items-center hover:bg-gray-50">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-blue-600 text-base">Trial #{trial.trialNo}</span>
+                            <span className="text-xs text-gray-500">วันที่: {formatThaiDate(trial.date)}</span>
+                            <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${trial.trialLocation === 'in_house' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'}`}>
+                              {trial.trialLocation === 'in_house' ? 'ภายในบริษัท (In-house)' : `นอกสถานที่ (${trial.outsourceCompany || 'Outsource'})`}
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-600 mt-1">
+                            สภาพพิมพ์: {trial.status === 'completed' ? '✅ เสร็จสิ้น' : '📝 ฉบับร่าง'} | เงื่อนไขการฉีด: {trial.conditions?.length || 0} เงื่อนไข
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <button onClick={() => { setFormData(trial); setView('report'); }} className="bg-blue-50 text-blue-600 border border-blue-200 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-blue-100 flex items-center gap-1">
+                            <Printer size={14}/> ดูรายงาน / ปริ้นท์
+                          </button>
+                          <button onClick={() => { setFormData(trial); setView('trial_form'); }} className="bg-gray-100 text-gray-700 border border-gray-300 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-gray-200 flex items-center gap-1">
+                            <Edit2 size={14}/> แก้ไข
+                          </button>
+                          <button onClick={async () => {
+                            if(window.confirm('ยืนยันการลบประวัติ Trial นี้?')){
+                              await deleteDoc(doc(db, 'trials', trial.id));
+                              setTrials(trials.filter(t => t.id !== trial.id));
+                            }
+                          }} className="bg-red-50 text-red-600 border border-red-200 p-1.5 rounded-lg hover:bg-red-100">
+                            <Trash2 size={16}/>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {trials.filter(t => t.partId === path.part?.id).length === 0 && (
+                      <div className="p-8 text-center text-gray-400">
+                        ยังไม่มีประวัติการ Trial สำหรับแม่พิมพ์นี้
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+            {view === 'trial_form' && formData && (
+              <div className="bg-white p-6 rounded-xl shadow-lg border space-y-6">
+                <div className="flex justify-between items-center border-b pb-4">
+                  <h2 className="text-xl font-bold text-blue-900">บันทึกผล Trial แม่พิมพ์ ครั้งที่ #{formData.trialNo}</h2>
+                  <div className="flex gap-3">
+                    <button onClick={goBack} className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-semibold hover:bg-gray-300">ยกเลิก</button>
+                    <button onClick={async () => {
+                      setIsSaving(true);
+                      try {
+                        await setDoc(doc(db, 'trials', formData.id), formData);
+                        alert('บันทึกข้อมูลเรียบร้อยแล้ว!');
+                        setView('trials');
+                      } catch(e) {
+                        alert('เกิดข้อผิดพลาด: ' + e.message);
+                      } finally {
+                        setIsSaving(false);
+                      }
+                    }} className="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-blue-700 shadow flex items-center gap-2">
+                      <Save size={18}/> บันทึกข้อมูล
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">วันที่ทำการ Trial</label>
+                    <input type="date" className="w-full border p-2 rounded" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">สถานที่ Trial</label>
+                    <select className="w-full border p-2 rounded font-semibold" value={formData.trialLocation} onChange={e => setFormData({...formData, trialLocation: e.target.value})}>
+                      <option value="in_house">ภายในบริษัท (In-house)</option>
+                      <option value="outsource">นอกสถานที่ (Outsource)</option>
+                    </select>
+                  </div>
+                  {formData.trialLocation === 'outsource' && (
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">ชื่อบริษัทที่ไป Trial</label>
+                      <input type="text" className="w-full border p-2 rounded" placeholder="ระบุชื่อบริษัท..." value={formData.outsourceCompany || ''} onChange={e => setFormData({...formData, outsourceCompany: e.target.value})} />
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-4 bg-gray-50 rounded-lg border space-y-4">
+                   <h3 className="font-bold text-gray-800">รูปภาพหน้างานและสภาพแม่พิมพ์</h3>
+                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <ImageUpload label="Setup ปิดพิมพ์" value={formData.images.setupClose} onChange={url => setFormData({...formData, images: {...formData.images, setupClose: url}})} onZoom={setZoomedImg} />
+                      <ImageUpload label="Setup เปิดพิมพ์" value={formData.images.setupOpen} onChange={url => setFormData({...formData, images: {...formData.images, setupOpen: url}})} onZoom={setZoomedImg} />
+                      <ImageUpload label="Cavity Side" value={formData.images.cav} onChange={url => setFormData({...formData, images: {...formData.images, cav: url}})} onZoom={setZoomedImg} />
+                      <ImageUpload label="Core Side" value={formData.images.core} onChange={url => setFormData({...formData, images: {...formData.images, core: url}})} onZoom={setZoomedImg} />
+                   </div>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4 border-t">
+                  <button onClick={goBack} className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-semibold">ยกเลิก</button>
+                  <button onClick={async () => {
+                    setIsSaving(true);
+                    try {
+                      await setDoc(doc(db, 'trials', formData.id), formData);
+                      alert('บันทึกข้อมูลเรียบร้อยแล้ว!');
+                      setView('trials');
+                    } catch(e) {
+                      alert('เกิดข้อผิดพลาด: ' + e.message);
+                    } finally {
+                      setIsSaving(false);
+                    }
+                  }} className="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-blue-700 shadow">
+                    บันทึกข้อมูล
+                  </button>
+                </div>
+              </div>
+            )}
+            {view === 'report' && formData && (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-200 no-print">
+                  <button onClick={goBack} className="p-2 border rounded-lg hover:bg-gray-100 flex items-center gap-1 text-sm font-semibold">
+                    <ChevronLeft size={16}/> กลับหน้าหลัก
+                  </button>
+                  <div className="flex gap-2">
+                    <button onClick={() => handleExportPNG('report-container', `Trial_Report_${formData.trialNo}`)} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 flex items-center gap-2 shadow-sm">
+                      <Download size={16}/> บันทึกเป็นรูปภาพ (PNG)
+                    </button>
+                    <button onClick={() => handleExportExcel('report-table-container', `Trial_Report_${formData.trialNo}`)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700 flex items-center gap-2 shadow-sm">
+                      <Download size={16}/> ส่งออก Excel
+                    </button>
+                    <button onClick={() => window.print()} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 flex items-center gap-2 shadow-sm">
+                      <Printer size={16}/> พิมพ์รายงาน (PDF)
+                    </button>
+                  </div>
+                </div>
+
+                <div id="report-container" className="bg-white p-8 rounded-xl shadow-lg border max-w-4xl mx-auto space-y-6 print:shadow-none print:border-none print:p-0">
+                  <div className="border-b-2 border-blue-900 pb-4 flex justify-between items-center">
+                    <div>
+                      <h1 className="text-xl font-bold text-blue-900">WISDOM AUTOPARTS CO., LTD.</h1>
+                      <p className="text-xs text-gray-500">PLASTIC INJECTION MOLD TRIAL REPORT</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-blue-900">Trial No: #{formData.trialNo}</p>
+                      <p className="text-xs text-gray-500">วันที่: {formatThaiDate(formData.date)}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 text-sm bg-gray-50 p-4 rounded-lg border">
+                    <div>
+                      <p><strong>ลูกค้า:</strong> {path.client?.name}</p>
+                      <p><strong>Model:</strong> {path.model?.name}</p>
+                    </div>
+                    <div>
+                      <p className="whitespace-pre-line"><strong>Part Code/Name:</strong> {path.part?.code}</p>
+                      <p><strong>สถานที่:</strong> {formData.trialLocation === 'in_house' ? 'ภายในบริษัท (In-house)' : `Outsource (${formData.outsourceCompany || '-'})`}</p>
+                    </div>
+                  </div>
+
+                  <div id="report-table-container" className="space-y-4">
+                     <h3 className="font-bold text-gray-800 text-sm border-b pb-1">เงื่อนไขการทดสอบและผลลัพธ์</h3>
+                     <table className="print-table w-full border-collapse border border-gray-300 text-xs">
+                        <thead>
+                           <tr className="bg-gray-100 text-gray-700">
+                              <th className="border p-2">เงื่อนไข (Condition)</th>
+                              <th className="border p-2">Cycle Time</th>
+                              <th className="border p-2">Gate Weight</th>
+                              <th className="border p-2">ผลประเมิน (Customer)</th>
+                           </tr>
+                        </thead>
+                        <tbody>
+                           {(formData.conditions || []).map((cond, idx) => (
+                              <tr key={cond.id || idx}>
+                                 <td className="border p-2 font-bold">{cond.name}</td>
+                                 <td className="border p-2 text-center">{cond.actCycleTime || '-'} s</td>
+                                 <td className="border p-2 text-center">{cond.actGateWeight || '-'} g</td>
+                                 <td className="border p-2 text-center font-semibold">
+                                    {cond.customerResult === 'ok' ? '✅ ผ่าน (OK)' : cond.customerResult === 'ng' ? '❌ ไม่ผ่าน (NG)' : '⏳ รอพิจารณา'}
+                                 </td>
+                              </tr>
+                           ))}
+                        </tbody>
+                     </table>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-4 pt-8 border-t text-center text-xs">
+                     {(formData.signatures || []).map((sig, idx) => (
+                        <div key={sig.id || idx} className="space-y-4">
+                           <p className="font-bold text-gray-700">{sig.role}</p>
+                           <div className="h-12 border-b border-dashed border-gray-400"></div>
+                           <p className="text-gray-500">({sig.name || '......................................'})</p>
+                        </div>
+                     ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </main>
