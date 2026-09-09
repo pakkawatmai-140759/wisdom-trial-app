@@ -140,7 +140,6 @@ const printStyles = `
     
     img { max-width: 100% !important; page-break-inside: avoid !important; }
   }
-`;
     
     /* ป้องกันจอขาวด้วยการอนุญาตให้แบ่งหน้าได้ตามธรรมชาติ */
     tr { page-break-inside: auto !important; page-break-after: auto !important; }
