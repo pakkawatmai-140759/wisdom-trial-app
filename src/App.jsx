@@ -92,10 +92,10 @@ export const restoreImages = (obj, imageMap) => {
   return obj;
 };
 
-// === แก้ปัญหาจอขาวตอนปริ้นท์ และ บังคับเป็น แนวนอน (Landscape) ===
+// === แก้ปัญหาจอขาวตอนปริ้นท์ และ บังคับเป็น แนวตั้ง (Portrait) ===
 const printStyles = `
-  /* บังคับกระดาษเป็นแนวนอน (Landscape) */
-  @page { size: A4 landscape; margin: 8mm; }
+  /* บังคับกระดาษเป็นแนวตั้ง (Portrait) */
+  @page { size: A4 portrait; margin: 8mm; }
   
   @media screen {
     .print-only { display: none !important; }
@@ -131,6 +131,16 @@ const printStyles = `
     table.print-table td, table.print-table th { 
         border: 1px solid black !important; 
     }
+    
+    /* ป้องกันจอขาวด้วยการอนุญาตให้แบ่งหน้าได้ตามธรรมชาติ */
+    tr { page-break-inside: auto !important; page-break-after: auto !important; }
+    td { page-break-inside: auto !important; }
+    
+    .page-break-before { page-break-before: always !important; }
+    
+    img { max-width: 100% !important; page-break-inside: avoid !important; }
+  }
+`;
     
     /* ป้องกันจอขาวด้วยการอนุญาตให้แบ่งหน้าได้ตามธรรมชาติ */
     tr { page-break-inside: auto !important; page-break-after: auto !important; }
