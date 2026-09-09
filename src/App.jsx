@@ -253,7 +253,6 @@ export default function App() {
   const [schedules, setSchedules] = useState([]);
   
   const [isBooking, setIsBooking] = useState(false);
-  const [sideNote, setSideNote] = useState('');
   
   const getInitialBookingData = () => ({ 
     id: null, date: '', time: '', type: 'trial', title: '', detail: '', clientId: '', partId: '', machine: '', requester: '', location: '',
